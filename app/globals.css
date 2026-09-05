@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Stage panel: crossfade when the visual_director-driven mode changes. */
+@keyframes stage-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.stage-fade-in {
+  animation: stage-fade-in 260ms ease-out;
+}
+
+/* DiagramStage: flowing dashes along edges + a staggered node entrance. */
+@keyframes diagram-edge-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+.diagram-edge-flow {
+  animation: diagram-edge-flow 1s linear infinite;
+}
+
+@keyframes diagram-node-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.diagram-node-in {
+  animation: diagram-node-in 320ms ease-out both;
+}
+
+/* AvatarScene: soft attention ring pulsing while the mic is open. */
+@keyframes avatar-listening-ring {
+  0% {
+    opacity: 0.55;
+    transform: scale(0.94);
+  }
+  70% {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+}
+.avatar-listening-ring {
+  animation: avatar-listening-ring 2.2s ease-out infinite;
+}
+
+/* VideoCallStage: flash a recognised gesture chip as it fires. */
+@keyframes gesture-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.9);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(0) scale(1.04);
+  }
+  30% {
+    transform: translateY(0) scale(1);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+.gesture-pop {
+  animation: gesture-pop 2.6s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .avatar-listening-ring,
+  .gesture-pop,
+  .stage-fade-in,
+  .diagram-edge-flow,
+  .diagram-node-in {
+    animation-duration: 1ms;
+    animation-iteration-count: 1;
+  }
+}
