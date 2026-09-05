@@ -9,9 +9,12 @@ import {
   type ConceptNode,
   type GestureSignal,
   type Language,
+  type LearnerLevel,
   type LessonPayload,
   type LessonState,
+  type LearnerProfileRecord,
   type QuizReport,
+  type RetrievedChunk,
   type TeachAction,
   type TeacherModelId,
   type TeacherPersona,
@@ -23,6 +26,16 @@ import {
   type VoiceGender,
 } from "@/lib/types";
 import { initialLessonPayload } from "@/lib/initial-lesson";
+import {
+  buildProfileBriefing,
+  clearProfile,
+  loadProfile,
+  recordLessonProgress,
+  recordMastery,
+  recordPreferences,
+  recordQuizResult,
+  saveProfile,
+} from "@/lib/learner-profile";
 import { useNarrator } from "@/lib/use-narrator";
 import { useGestureRecognition } from "@/lib/use-gesture-recognition";
 import type { AvatarState } from "./stage/avatar-face";
@@ -31,7 +44,12 @@ import { BrainPanel } from "./brain/brain-panel";
 
 interface UploadedNote {
   fileName: string;
+  /** Full extracted text — the self-healing fallback if the index is lost. */
   text: string;
+  /** Handle for the server-side retrieval index built at upload time. */
+  docId: string;
+  chunkCount: number;
+  retrieval: "embeddings" | "lexical";
 }
 
 // Short spoken reactions after each quiz question — flavored per persona to
@@ -96,7 +114,15 @@ interface TeachTurnInput {
   action?: TeachAction;
   conceptPlan?: ConceptNode[];
   gestureSignal?: GestureSignal;
+  /** @deprecated Retrieval now runs on every turn; kept so callers don't churn. */
   includeUpload?: boolean;
+  /**
+   * Lesson state to send instead of the one in `lesson`. Needed when a turn
+   * is fired in the same tick as a setLesson() that hasn't re-rendered yet —
+   * the quiz feedback loop demotes concepts and must teach from the demoted
+   * plan, not the stale one this closure still holds.
+   */
+  lessonStateOverride?: LessonState;
   /** Explicit override — falls back to isFeynmanMode when omitted, since a
    * toggle-on trigger fires in the same event as setIsFeynmanMode(true) and
    * can't rely on that state having re-rendered yet. */
@@ -124,6 +150,17 @@ export function Dashboard() {
   const [uploadedNote, setUploadedNote] = useState<UploadedNote | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // The passages the last turn was actually grounded in. Empty means the
+  // answer came from the model's own knowledge, which the UI says out loud.
+  const [groundedOn, setGroundedOn] = useState<RetrievedChunk[]>([]);
+  /**
+   * Whether retrieval served the previous turn. When it did not — the index
+   * was dropped by a server restart, say — the next turn re-sends the raw
+   * extracted text so the lesson stays grounded instead of quietly starting
+   * to improvise. This is what makes the document survive the whole session
+   * rather than only its first turn.
+   */
+  const [groundedLastTurn, setGroundedLastTurn] = useState(false);
 
   const [model, setModel] = useState<TeacherModelId>("gemini-3.6-flash");
   const [extendedThinking, setExtendedThinking] = useState(false);
@@ -131,11 +168,113 @@ export function Dashboard() {
   const [voiceGender, setVoiceGender] = useState<VoiceGender>("male");
   const [language, setLanguage] = useState<Language>("english");
   const [timeBudget, setTimeBudget] = useState<TimeBudget>("standard");
+  const [learnerLevel, setLearnerLevel] = useState<LearnerLevel>("beginner");
 
   const [isMicListening, setIsMicListening] = useState(false);
 
+  // The persistent learner profile. Seeded empty so the server and the first
+  // client render agree, then hydrated from localStorage in an effect —
+  // reading storage during render would produce a hydration mismatch.
+  const [profile, setProfile] = useState<LearnerProfileRecord>(() => ({
+    version: 1,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    preferredLanguage: "english",
+    preferredLevel: "beginner",
+    preferredPersona: "standard",
+    preferredTimeBudget: "standard",
+    topics: [],
+    history: [],
+  }));
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  /** What the student asked to learn — the key their history is filed under. */
+  const [currentTopic, setCurrentTopic] = useState<string | null>(null);
+
   const [isVideoCallActive, setIsVideoCallActive] = useState(false);
   const [videoCallError, setVideoCallError] = useState<string | null>(null);
+
+  // Hydrate once, and restore how this student likes to be taught. Their
+  // saved settings are the whole point of remembering them, so they are
+  // applied rather than merely stored.
+  // localStorage cannot be read during render without a hydration mismatch
+  // (the server has no storage), so the profile is loaded once after mount.
+  // This is the read side of an external system, which is exactly what
+  // effects are for — the rule below is tuned for derived state, not this.
+  useEffect(() => {
+    const stored = loadProfile();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setProfile(stored);
+    setProfileLoaded(true);
+    if (stored.topics.length > 0 || stored.history.length > 0) {
+      setLanguage(stored.preferredLanguage);
+      setLearnerLevel(stored.preferredLevel);
+      setPersona(stored.preferredPersona);
+      setTimeBudget(stored.preferredTimeBudget);
+    }
+  }, []);
+
+  /**
+   * Records a preference change and writes it straight to storage.
+   *
+   * Done here rather than in an effect watching the four values: a preference
+   * changes because the student changed it, so the write belongs at the
+   * moment of the change, and an effect would also fire on hydration and
+   * re-save what it had just loaded.
+   */
+  const persistPreference = useCallback(
+    (patch: Partial<{
+      language: Language;
+      level: LearnerLevel;
+      persona: TeacherPersona;
+      timeBudget: TimeBudget;
+    }>) => {
+      if (!profileLoaded) return;
+      setProfile((previous) => {
+        const next = recordPreferences(previous, {
+          language,
+          level: learnerLevel,
+          persona,
+          timeBudget,
+          ...patch,
+        });
+        saveProfile(next);
+        return next;
+      });
+    },
+    [profileLoaded, language, learnerLevel, persona, timeBudget],
+  );
+
+  const handleLanguageChange = useCallback(
+    (value: Language) => {
+      setLanguage(value);
+      persistPreference({ language: value });
+    },
+    [persistPreference],
+  );
+
+  const handleLearnerLevelChange = useCallback(
+    (value: LearnerLevel) => {
+      setLearnerLevel(value);
+      persistPreference({ level: value });
+    },
+    [persistPreference],
+  );
+
+  const handlePersonaChange = useCallback(
+    (value: TeacherPersona) => {
+      setPersona(value);
+      persistPreference({ persona: value });
+    },
+    [persistPreference],
+  );
+
+  const handleTimeBudgetChange = useCallback(
+    (value: TimeBudget) => {
+      setTimeBudget(value);
+      persistPreference({ timeBudget: value });
+    },
+    [persistPreference],
+  );
 
   const narrator = useNarrator();
 
@@ -215,8 +354,8 @@ export function Dashboard() {
       action,
       conceptPlan,
       gestureSignal,
-      includeUpload = false,
       mode,
+      lessonStateOverride,
     }: TeachTurnInput) => {
       const historyBeforeThisTurn = messages;
       const studentMessage: ChatMessage = {
@@ -235,7 +374,7 @@ export function Dashboard() {
       // Replayed into the prompt on every turn: whichever provider ends up
       // serving this request resumes this exact concept plan instead of
       // starting the topic over.
-      const lessonState: LessonState = {
+      const lessonState: LessonState = lessonStateOverride ?? {
         teaching_phase: lesson.teaching_phase,
         concept_plan: lesson.concept_plan,
         student_profile: lesson.student_profile,
@@ -248,12 +387,19 @@ export function Dashboard() {
           body: JSON.stringify({
             history: historyBeforeThisTurn,
             message: engineMessage,
-            uploadedContent: includeUpload ? uploadedNote?.text : undefined,
+            // Sent only when retrieval isn't serving this document, so the
+            // normal path stays a handful of relevant passages rather than a
+            // whole textbook re-uploaded on every turn.
+            uploadedContent:
+              uploadedNote && !groundedLastTurn ? uploadedNote.text : undefined,
+            docId: uploadedNote?.docId,
+            profileBriefing: buildProfileBriefing(profile, currentTopic ?? displayMessage),
             modelId: model,
             extendedThinking,
             persona,
             language,
             timeBudget,
+            learnerLevel,
             action,
             mode: effectiveMode,
             conceptPlan,
@@ -264,6 +410,10 @@ export function Dashboard() {
         });
         const data = (await res.json()) as TeachResponseBody;
         if (!data.ok) throw new Error(data.error);
+
+        const grounded = data.groundedOn ?? [];
+        setGroundedOn(grounded);
+        setGroundedLastTurn(grounded.length > 0);
 
         // Feynman Mode: the model appends this marker to avatar_script the
         // turn it concedes its misconception is resolved, and is instructed
@@ -293,7 +443,31 @@ export function Dashboard() {
         setLesson(payload);
         speak(cleanedScript);
 
+        // File what this turn established about the learner. The topic is
+        // whatever they first asked for, so a lesson and its later quiz land
+        // under the same heading in their history.
+        if (payload.concept_plan.length > 0) {
+          const isNewTopic = currentTopic === null;
+          const topic = currentTopic ?? displayMessage.slice(0, 90);
+          if (isNewTopic) setCurrentTopic(topic);
+          setProfile((previous) => {
+            const next = recordLessonProgress(previous, topic, payload.concept_plan, isNewTopic);
+            saveProfile(next);
+            return next;
+          });
+        }
+
         if (mastered && feynmanConceptId) {
+          const masteredLabel = lesson.concept_plan.find(
+            (concept) => concept.id === feynmanConceptId,
+          )?.label;
+          if (masteredLabel && currentTopic) {
+            setProfile((previous) => {
+              const next = recordMastery(previous, currentTopic, masteredLabel);
+              saveProfile(next);
+              return next;
+            });
+          }
           setCelebratingConceptId(feynmanConceptId);
           // The reverse session for this concept is done — hand control back
           // to the normal teaching loop for whatever comes next.
@@ -301,11 +475,6 @@ export function Dashboard() {
           setFeynmanConceptId(null);
         }
 
-        if (includeUpload) {
-          // The uploaded material has now been folded into the lesson's
-          // concept plan — no need to keep resending it on every future turn.
-          setUploadedNote(null);
-        }
       } catch (error) {
         const errorMessage: ChatMessage = {
           id: crypto.randomUUID(),
@@ -334,6 +503,10 @@ export function Dashboard() {
       lesson,
       isFeynmanMode,
       feynmanConceptId,
+      groundedLastTurn,
+      learnerLevel,
+      profile,
+      currentTopic,
     ],
   );
 
@@ -453,6 +626,17 @@ export function Dashboard() {
     speak(correct ? feedback.correct : feedback.incorrect);
   }
 
+  /**
+   * Closes the assessment loop.
+   *
+   * A score the student reads and dismisses changes nothing. So the result is
+   * written back into the lesson itself: concepts they got wrong drop out of
+   * "completed" and back to "misconception", the engine is told about them in
+   * student_profile, and the first weak concept is immediately re-taught from
+   * a different angle. The quiz becomes the thing that decides what happens
+   * next, which is what section 12's adapt-after-evaluate loop actually asks
+   * for.
+   */
   function handleQuizCompleted(report: QuizReport) {
     const summary = buildQuizSummarySpeech(report);
     setMessages((prev) => [
@@ -460,6 +644,63 @@ export function Dashboard() {
       { id: crypto.randomUUID(), role: "teacher", content: summary },
     ]);
     speak(summary);
+
+    if (currentTopic) {
+      setProfile((previous) => {
+        const next = recordQuizResult(previous, currentTopic, report);
+        saveProfile(next);
+        return next;
+      });
+    }
+
+    const weakIds = new Set(report.weakConceptIds);
+    const masteredIds = new Set(report.masteredConceptIds);
+
+    if (weakIds.size === 0) {
+      // Nothing missed — promote what the quiz confirmed and carry on.
+      setLesson((previous) => ({
+        ...previous,
+        concept_plan: previous.concept_plan.map((concept) =>
+          masteredIds.has(concept.id) ? { ...concept, status: "completed" } : concept,
+        ),
+      }));
+      return;
+    }
+
+    const repaired = lesson.concept_plan.map((concept) => {
+      if (weakIds.has(concept.id)) return { ...concept, status: "misconception" as const };
+      if (masteredIds.has(concept.id)) return { ...concept, status: "completed" as const };
+      return concept;
+    });
+
+    const firstWeak = repaired.find((concept) => weakIds.has(concept.id));
+
+    setLesson((previous) => ({
+      ...previous,
+      concept_plan: repaired,
+      student_profile: {
+        understood_concepts: report.masteredConcepts,
+        identified_misconceptions: report.weakConcepts,
+      },
+    }));
+
+    if (!firstWeak) return;
+
+    // Re-teach immediately, using the repaired plan as the state the engine
+    // resumes from, so it picks up the demoted concept rather than the stale
+    // "completed" one.
+    void runTeachTurn({
+      displayMessage: `\u{1F4CB} Quiz result: ${report.scorePercent}% — re-teach "${firstWeak.label}"`,
+      engineMessage: `I scored ${report.scorePercent}% on the quiz. I got questions wrong on: ${report.weakConcepts.join(", ")}. Re-teach "${firstWeak.label}" from a different angle, using a simpler analogy than before, then ask me one easier check question on it. Do not move on to a new concept yet.`,
+      lessonStateOverride: {
+        teaching_phase: "scaffolding",
+        concept_plan: repaired,
+        student_profile: {
+          understood_concepts: report.masteredConcepts,
+          identified_misconceptions: report.weakConcepts,
+        },
+      },
+    });
   }
 
   async function handleUpload(file: File) {
@@ -472,12 +713,27 @@ export function Dashboard() {
       const res = await fetch("/api/upload", { method: "POST", body: formData });
       const data = (await res.json()) as UploadResponseBody;
       if (!data.ok) throw new Error(data.error);
-      setUploadedNote({ fileName: data.fileName, text: data.text });
+      setUploadedNote({
+        fileName: data.fileName,
+        text: data.text,
+        docId: data.knowledgeBase.docId,
+        chunkCount: data.knowledgeBase.chunkCount,
+        retrieval: data.knowledgeBase.retrieval,
+      });
+      setGroundedLastTurn(false);
+      setGroundedOn([]);
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : "Failed to upload that file.");
     } finally {
       setIsUploading(false);
     }
+  }
+
+  function handleResetProfile() {
+    clearProfile();
+    const fresh = loadProfile();
+    setProfile(fresh);
+    setCurrentTopic(null);
   }
 
   const avatarState: AvatarState = narrator.isSpeaking
@@ -493,7 +749,9 @@ export function Dashboard() {
       <header className="flex items-center gap-2 border-b border-white/10 px-5 py-3">
         <GraduationCap size={20} className="text-indigo-400" />
         <span className="text-sm font-semibold text-slate-100">AI Teacher</span>
-        <span className="text-xs text-slate-500">— live prototype</span>
+        <span className="text-xs text-slate-500">
+          Understand → Plan → Explain → Question → Evaluate → Adapt
+        </span>
       </header>
 
       <main className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-2">
@@ -513,13 +771,15 @@ export function Dashboard() {
             extendedThinking={extendedThinking}
             onExtendedThinkingChange={setExtendedThinking}
             persona={persona}
-            onPersonaChange={setPersona}
+            onPersonaChange={handlePersonaChange}
             voiceGender={voiceGender}
             onVoiceGenderChange={setVoiceGender}
             language={language}
-            onLanguageChange={setLanguage}
+            onLanguageChange={handleLanguageChange}
+            learnerLevel={learnerLevel}
+            onLearnerLevelChange={handleLearnerLevelChange}
             timeBudget={timeBudget}
-            onTimeBudgetChange={setTimeBudget}
+            onTimeBudgetChange={handleTimeBudgetChange}
             avatarState={avatarState}
             readMouthFrame={narrator.readMouthFrame}
             isAudioBlocked={narrator.isBlocked}
@@ -552,6 +812,10 @@ export function Dashboard() {
             isTeacherSpeaking={narrator.isSpeaking}
             onListeningChange={setIsMicListening}
             onUnlockAudio={narrator.unlock}
+            profile={profile}
+            onResetProfile={handleResetProfile}
+            groundedOn={groundedOn}
+            documentName={uploadedNote?.fileName ?? null}
           />
         </div>
       </main>

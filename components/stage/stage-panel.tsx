@@ -15,9 +15,11 @@ import {
 } from "lucide-react";
 import type { MouthFrame } from "@/lib/audio-engine";
 import type { GestureEngineStatus, HeadPose } from "@/lib/use-gesture-recognition";
+import { SHOWCASE_MODE } from "@/lib/build-flags";
 import type {
   GestureSignal,
   Language,
+  LearnerLevel,
   LessonPayload,
   QuizReport,
   TeacherModelId,
@@ -41,6 +43,7 @@ import { ModelSelector } from "./model-selector";
 import { PersonaSelector } from "./persona-selector";
 import { VoiceSelector } from "./voice-selector";
 import { LanguageSelector } from "./language-selector";
+import { LevelSelector } from "./level-selector";
 import { TimeBudgetSelector } from "./time-budget-selector";
 
 type StageMode = "avatar" | "code" | "diagram" | "video" | "quiz" | "videocall";
@@ -77,6 +80,8 @@ export interface StagePanelProps {
   onVoiceGenderChange: (voiceGender: VoiceGender) => void;
   language: Language;
   onLanguageChange: (language: Language) => void;
+  learnerLevel: LearnerLevel;
+  onLearnerLevelChange: (level: LearnerLevel) => void;
   timeBudget: TimeBudget;
   onTimeBudgetChange: (timeBudget: TimeBudget) => void;
   avatarState: AvatarState;
@@ -120,6 +125,8 @@ export function StagePanel({
   onVoiceGenderChange,
   language,
   onLanguageChange,
+  learnerLevel,
+  onLearnerLevelChange,
   timeBudget,
   onTimeBudgetChange,
   avatarState,
@@ -254,6 +261,10 @@ export function StagePanel({
             onVoiceGenderChange={onVoiceGenderChange}
           />
           <LanguageSelector language={language} onLanguageChange={onLanguageChange} />
+          <LevelSelector
+            learnerLevel={learnerLevel}
+            onLearnerLevelChange={onLearnerLevelChange}
+          />
           <TimeBudgetSelector timeBudget={timeBudget} onTimeBudgetChange={onTimeBudgetChange} />
           <button
             onClick={onTakeQuiz}
@@ -319,9 +330,13 @@ export function StagePanel({
               <EmptyStageState message="No diagram for this step yet." />
             ))}
           {mode === "video" && (
-            <div className="flex h-full w-full items-center justify-center p-6">
-              <VideoStage caption={lesson.avatar_script} />
-            </div>
+            <VideoStage
+              lesson={lesson}
+              persona={persona}
+              language={language}
+              learnerLevel={learnerLevel}
+              voiceGender={voiceGender}
+            />
           )}
           {mode === "videocall" && (
             <VideoCallStage
@@ -364,34 +379,37 @@ export function StagePanel({
         )}
 
         <div className="absolute bottom-4 right-4 flex items-end gap-4 z-50">
-          <a
-            href="https://www.royalenfield.com/in/en/gma/bullet/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bg-[#111111]/90 backdrop-blur-md border border-[#D32F2F]/50 py-2 px-3 rounded-xl shadow-2xl hover:bg-black hover:border-[#D32F2F] transition-all z-50 flex items-center gap-3 max-w-[280px] text-left cursor-pointer"
-          >
-            {/* Bike Image Container */}
-            <div className="shrink-0 bg-white/5 rounded-lg p-1">
-              <img
-                src="https://www.royalenfield.com/content/dam/royal-enfield/india/motorcycles/classic-350/landing/classic-350-motorcycle.png"
-                alt="Royal Enfield Bullet 350"
-                className="w-16 h-12 object-contain"
-                onError={(e) => {
-                  e.currentTarget.src = "https://placehold.co/100x60/222/FFF?text=Bullet+350";
-                }}
-              />
-            </div>
-
-            {/* Ad Copy */}
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[#E5A93C] font-bold uppercase tracking-wider text-[9px]">
-                Sponsored
-              </span>
-              <span className="text-slate-200 text-[11px] leading-tight pr-1">
-                Explore genuine Royal Enfield Bullet accessories →
-              </span>
-            </div>
-          </a>
+          {/* Sponsor placement — personal build only. Off by default so the
+              teaching surface stays clean for anyone evaluating the product.
+              See lib/build-flags.ts. */}
+          {SHOWCASE_MODE && (
+            <a
+              href="https://www.royalenfield.com/in/en/gma/bullet/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-[#111111]/90 backdrop-blur-md border border-[#D32F2F]/50 py-2 px-3 rounded-xl shadow-2xl hover:bg-black hover:border-[#D32F2F] transition-all z-50 flex items-center gap-3 max-w-[280px] text-left cursor-pointer"
+            >
+              <div className="shrink-0 bg-white/5 rounded-lg p-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://www.royalenfield.com/content/dam/royal-enfield/india/motorcycles/classic-350/landing/classic-350-motorcycle.png"
+                  alt="Royal Enfield Bullet 350"
+                  className="w-16 h-12 object-contain"
+                  onError={(e) => {
+                    e.currentTarget.src = "https://placehold.co/100x60/222/FFF?text=Bullet+350";
+                  }}
+                />
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[#E5A93C] font-bold uppercase tracking-wider text-[9px]">
+                  Sponsored
+                </span>
+                <span className="text-slate-200 text-[11px] leading-tight pr-1">
+                  Explore genuine Royal Enfield Bullet accessories &rarr;
+                </span>
+              </div>
+            </a>
+          )}
           {showAvatarOverlay && (
             <AvatarOverlay
               persona={persona}

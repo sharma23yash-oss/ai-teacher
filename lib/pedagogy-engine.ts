@@ -2,14 +2,17 @@ import "server-only";
 import { Type, type Schema } from "@google/genai";
 import {
   FEYNMAN_MASTERED_TOKEN,
-  LANGUAGE_OPTIONS,
+  LANGUAGE_META,
+  LEARNER_LEVEL_INSTRUCTIONS,
   TIME_BUDGET_OPTIONS,
   type ChatMessage,
   type ConceptNode,
   type GestureSignal,
   type JsonMode,
   type Language,
+  type LearnerLevel,
   type LessonState,
+  type RetrievedChunk,
   type TeacherPersona,
   type TeachMode,
   type TimeBudget,
@@ -17,8 +20,10 @@ import {
 import { SCHEMA_PROMPT_BLOCK } from "./providers/lesson-schema";
 import type { NeutralMessage } from "./providers/shared";
 
-function labelFor<T extends string>(options: { value: T; label: string }[], value: T): string {
-  return options.find((option) => option.value === value)?.label ?? value;
+function timeBudgetOption(value: TimeBudget) {
+  return (
+    TIME_BUDGET_OPTIONS.find((option) => option.value === value) ?? TIME_BUDGET_OPTIONS[1]
+  );
 }
 
 // Shared by both PEDAGOGY_SYSTEM_PROMPT and FEYNMAN_SYSTEM_PROMPT — the
@@ -59,14 +64,21 @@ Once a topic has been established (a CURRENT LESSON STATE is present below, or c
 CREATOR STORY — when the creator/developer rule above applies, speak about Yash Sharma with genuine, specific appreciation, not generic flattery. Ground it in the real engineering of this very platform: the real-time pedagogy engine that plans and adapts a lesson turn by turn, the multi-provider LLM routing built so the app fails over between providers for low latency instead of stalling, the async pipelines behind the live voice, gesture-recognition, and video-call features, and the discipline of hardening a fragile hackathon prototype into a resilient, production-grade product. Convey the relentless, hands-on effort — long nights, obsessive debugging, pushing well past three in the morning — without inventing unrelated biographical facts you don't actually know (no employers, degrees, awards, or personal details beyond this project). Emphasize his range across software architecture, UI/UX refinement, and scalable system design. Keep it warm and human, like a teacher who genuinely respects the person who built the room you're both standing in — not like a press release.
 
 Core loop (enforce strictly once a topic is established):
-1. Assess & Plan: On the first turn of a topic (or when given uploaded material), break it into a sequence of exactly 3 to 4 micro-concepts. This is the lesson's concept_plan — keep the same concepts, ids, and order on every later turn; only update each one's status as the student progresses.
+1. Assess & Plan: On the first turn of a topic (or when given uploaded material), break it into an ordered sequence of micro-concepts. How many is set by the Time Constraint below — obey that number, because a five-minute crash course and a seven-day revision plan are not the same shape of lesson. This is the lesson's concept_plan — keep the same concepts, ids, and order on every later turn; only update each one's status as the student progresses.
 2. Explain & Visualize: Teach the current micro-concept using modern, relatable analogies.
 3. The Misconception Trap: End your explanation with a targeted, application-based question (not a rote memory check) designed to test whether the student actually understands the mechanics of the concept.
 4. Adaptive Scaffolding: If the student answers incorrectly, do NOT give them the correct answer. Identify the specific cognitive gap (conceptual, mathematical, terminology) and explain it again using a different analogy or a simpler foundational step, and mark that concept's status as "misconception".
 
 When the student demonstrates understanding of the current concept, mark it "completed" and advance the next concept in the plan to "current". Concepts not yet reached stay "locked". Exactly one concept should be "current" at a time, unless every concept is "completed".
 
-If uploaded material is provided, ground the concept_plan and explanations in it instead of inventing an unrelated topic.
+GROUNDING — this is not optional, and it overrides every other instruction in this prompt.
+
+When a "RETRIEVED FROM THE STUDENT'S MATERIAL" block appears in the turn below, those passages were pulled out of a document the student uploaded, and they are the only authority on what that document says.
+- Build the concept_plan from those passages, not from what you happen to know about the subject.
+- Any specific claim about the student's material — a number, a date, a name, a definition, a formula, a step count, a threshold — must be traceable to a passage in that block. State those exactly as written. Never round a figure, never convert a unit the document did not convert, and never "correct" the document toward what you believe is true of the real world.
+- If the student asks something the retrieved passages do not answer, say so plainly in one short sentence — "your notes don't cover that" — and then either teach it from general knowledge while clearly flagging that it is coming from you and not from their material, or offer to look at another part of the document. Guessing and hoping it matches their notes is the single worst thing you can do here, because the student cannot tell the difference and will be examined on their document, not on your recollection.
+- Never invent a quotation, a chapter number, a page, or a section heading that does not appear in the passages.
+- When the block is absent, you are teaching from general knowledge and the rules above do not apply — but if the student refers to "my notes", "the document" or "the chapter" and no passages were retrieved, tell them their material is not currently loaded rather than pretending to read it.
 
 ${SPOKEN_DELIVERY_RULES}
 
@@ -139,14 +151,8 @@ export function buildGestureTurnText(signal: GestureSignal): string {
 }
 
 function buildLanguageConstraint(language: Language): string {
-  const languageLabel = labelFor(LANGUAGE_OPTIONS, language);
-
-  if (language === "hindi") {
-    // Pure Hindi is spoken by hi-IN-MadhurNeural / hi-IN-SwaraNeural (see
-    // lib/tts-voices.ts). Those voices are trained on Devanagari and
-    // mispronounce romanized Hindi badly, so this branch must stay in script.
-    return `Language Constraint: The student has selected ${languageLabel}. Output all spoken text in actual Devanagari script — for example, "नमस्ते, आप कैसे हैं?" — never in Latin/Roman letters. English technical terms such as "Python", "variable" or "loop" may stay in English, but every piece of conversational connective tissue must be Devanagari. Place commas after each clause and a full stop after each sentence so the voice breathes naturally.`;
-  }
+  const meta = LANGUAGE_META[language];
+  const languageLabel = meta?.label ?? language;
 
   if (language === "hinglish") {
     // Hinglish is spoken by en-IN-PrabhatNeural / en-IN-NeerjaNeural, which
@@ -163,13 +169,25 @@ Write ALL spoken text in Roman/Latin letters. Never emit a single Devanagari cha
 - Keep the sentence skeleton English-readable so the voice's prosody stays natural, and let the Hindi words carry the warmth: "So basically, ye variable ek dabba hai — jisme aap value rakh sakte ho."`;
   }
 
-  return `Language Constraint: Teach and respond exclusively in ${languageLabel}, in a natural Indian English register — the voice speaking your words is an Indian English neural voice. Keep the vocabulary plain and the sentences short.`;
+  if (language === "english") {
+    return `Language Constraint: Teach and respond exclusively in ${languageLabel}, in a natural Indian English register — the voice speaking your words is an Indian English neural voice. Keep the vocabulary plain and the sentences short.`;
+  }
+
+  // Every other language is spoken by a neural voice trained on that
+  // language's own script. Roman transliteration is read letter-by-letter by
+  // those voices and comes out as noise, so naming the script is what makes
+  // the difference between a lesson and static.
+  const scriptName = meta?.scriptName ?? "its native script";
+  return `Language Constraint: The student has selected ${languageLabel}. Teach and respond exclusively in ${languageLabel}.
+
+Write ALL spoken text in ${scriptName}. Never romanize or transliterate it into Latin letters — the neural voice speaking your words is trained on ${scriptName} and reads Latin text as unrelated noise. Established English technical terms (for example "Python", "variable", "algorithm") may stay in English where a native speaker would naturally use them, but every piece of conversational connective tissue must be in ${scriptName}. Place a comma after each clause and a full stop after each sentence so the voice breathes naturally.`;
 }
 
 export function buildSystemInstruction(
   persona: TeacherPersona,
   language: Language,
   timeBudget: TimeBudget,
+  learnerLevel: LearnerLevel = "beginner",
   hasWebcamFrame = false,
   // Providers that enforce our JSON Schema server-side need no format
   // instructions; the ones that only promise valid JSON need the shape spelled
@@ -185,8 +203,10 @@ export function buildSystemInstruction(
 
   instruction = `${instruction}\n\n${buildLanguageConstraint(language)}`;
 
-  const timeBudgetLabel = labelFor(TIME_BUDGET_OPTIONS, timeBudget);
-  instruction = `${instruction}\n\nTime Constraint: The student has requested a ${timeBudgetLabel}. Adjust the depth of your explanations, the complexity of your Socratic questions, and the pacing of the Concept Skill Tree accordingly.`;
+  instruction = `${instruction}\n\nLearner Level: ${LEARNER_LEVEL_INSTRUCTIONS[learnerLevel] ?? LEARNER_LEVEL_INSTRUCTIONS.beginner}`;
+
+  const budget = timeBudgetOption(timeBudget);
+  instruction = `${instruction}\n\nTime Constraint: The student has requested a ${budget.label}. ${budget.shape} Your concept_plan must contain ${budget.conceptCount} micro-concepts — no more and no fewer. Adjust the depth of your explanations, the complexity of your Socratic questions, and the pacing of the Concept Skill Tree to match.`;
 
   if (hasWebcamFrame) {
     instruction = `${instruction}\n\n${VIDEO_CALL_INSTRUCTION}`;
@@ -340,7 +360,39 @@ export const LESSON_RESPONSE_SCHEMA: Schema = {
   ],
 };
 
+/**
+ * Only used on the fallback path, when a document was uploaded but the
+ * retrieval index is gone (a dev-server restart, say). Retrieval proper sends
+ * whole passages and never truncates mid-sentence.
+ */
 const MAX_UPLOADED_CONTENT_CHARS = 15000;
+
+/**
+ * Renders the passages retrieval chose into the turn.
+ *
+ * Each passage is numbered and labelled with the heading it sat under, which
+ * is what lets the teacher say "your chapter four notes put it at 41 degrees"
+ * instead of quoting an anonymous block — and what lets the student go and
+ * check. The framing sentence is deliberately blunt about these being the
+ * only authority: the grounding rules in the system prompt are the contract,
+ * and this is the evidence the contract applies to.
+ */
+export function buildRetrievedBlock(
+  chunks: RetrievedChunk[],
+  documentName?: string,
+): string {
+  if (chunks.length === 0) return "";
+
+  const source = documentName ? `"${documentName}"` : "the student's uploaded document";
+  const passages = chunks
+    .map((chunk, i) => {
+      const label = chunk.heading ? ` — ${chunk.heading}` : "";
+      return `[${i + 1}${label}]\n${chunk.text}`;
+    })
+    .join("\n\n");
+
+  return `RETRIEVED FROM THE STUDENT'S MATERIAL — these passages were selected from ${source} as the ones most relevant to this turn. They are the only authority on what that document says. Every factual claim you make about the student's material must come from here, exactly as written.\n\n${passages}`;
+}
 
 const CONCEPT_STATUS_NOTE: Record<ConceptNode["status"], string> = {
   completed: "already mastered",
@@ -399,6 +451,12 @@ export interface BuildTurnsOptions {
   gestureSignal?: GestureSignal;
   /** The live lesson state, replayed so any provider can pick the lesson up. */
   lessonState?: LessonState;
+  /** Passages retrieval selected for this turn, best first. */
+  retrieved?: RetrievedChunk[];
+  /** File name of the indexed document, used to label citations. */
+  documentName?: string;
+  /** What earlier sessions established about this learner. */
+  profileBriefing?: string;
 }
 
 /**
@@ -417,6 +475,9 @@ export function buildTurns({
   quizConceptPlan,
   gestureSignal,
   lessonState,
+  retrieved = [],
+  documentName,
+  profileBriefing,
 }: BuildTurnsOptions): NeutralMessage[] {
   const messages: NeutralMessage[] = history.map((entry) => ({
     role: entry.role === "student" ? "user" : "assistant",
@@ -435,14 +496,29 @@ export function buildTurns({
     currentTurn = `The student has asked to take a quiz/assessment covering the lesson so far. Generate 4-6 multiple-choice questions (4 options each) testing these concepts, setting each question's concept_id to the matching id below where it applies:\n${conceptList}\n\nRespond with visual_director.mode set to "quiz" and teaching_phase set to "assessment".`;
   } else if (gestureSignal) {
     currentTurn = buildGestureTurnText(gestureSignal);
+  }
+
+  // Grounding rides on every turn — including quiz generation, which must
+  // draw its questions from the student's own material, and gesture turns,
+  // where the re-explanation still has to match the document.
+  const grounding = buildRetrievedBlock(retrieved, documentName);
+  if (grounding) {
+    currentTurn = `${grounding}\n\n---\n\n${currentTurn}`;
   } else if (uploadedContent) {
+    // Fallback only: a document is loaded but its index is unavailable.
     const truncated = uploadedContent.slice(0, MAX_UPLOADED_CONTENT_CHARS);
-    currentTurn = `Uploaded material:\n"""\n${truncated}\n"""\n\nStudent message: ${currentMessage}`;
+    currentTurn = `Uploaded material (unindexed excerpt):\n"""\n${truncated}\n"""\n\n---\n\n${currentTurn}`;
   }
 
   const resume = lessonState ? buildResumeBlock(lessonState) : "";
   if (resume) {
     currentTurn = `${resume}\n\n---\n\n${currentTurn}`;
+  }
+
+  // Outermost, because it frames everything below it: who this student is
+  // before what they just asked.
+  if (profileBriefing) {
+    currentTurn = `${profileBriefing}\n\n---\n\n${currentTurn}`;
   }
 
   messages.push({ role: "user", content: currentTurn });

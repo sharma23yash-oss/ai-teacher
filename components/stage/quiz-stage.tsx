@@ -5,7 +5,16 @@ import { CheckCircle2, XCircle } from "lucide-react";
 import type { ConceptNode, QuizQuestion, QuizReport } from "@/lib/types";
 import { ReportCard } from "./report-card";
 
-function buildReport(
+/**
+ * Scores the quiz and — crucially — reports *which concept ids* were missed,
+ * not just their labels.
+ *
+ * The ids are what let the lesson act on the result: the dashboard flips those
+ * concepts back to "misconception" and tells the engine to re-teach them, so
+ * an assessment changes what happens next instead of being a dead-end score
+ * card the student reads and closes.
+ */
+export function buildReport(
   questions: QuizQuestion[],
   answers: (number | null)[],
   conceptPlan: ConceptNode[],
@@ -27,24 +36,43 @@ function buildReport(
 
   const masteredConcepts: string[] = [];
   const weakConcepts: string[] = [];
+  const masteredConceptIds: string[] = [];
+  const weakConceptIds: string[] = [];
 
   for (const concept of conceptPlan) {
+    // Getting a question wrong outranks having previously "completed" the
+    // concept — the quiz is the more recent evidence, and the whole point of
+    // assessing is to be willing to revise the earlier verdict.
     if (wrongConceptIds.has(concept.id)) {
       weakConcepts.push(concept.label);
+      weakConceptIds.push(concept.id);
     } else if (rightConceptIds.has(concept.id) || concept.status === "completed") {
       masteredConcepts.push(concept.label);
+      masteredConceptIds.push(concept.id);
     }
   }
 
-  const nextUnmastered = conceptPlan.find((c) => c.status !== "completed");
+  const nextUnmastered = conceptPlan.find(
+    (c) => c.status !== "completed" && !weakConceptIds.includes(c.id),
+  );
+
   const recommendation =
     weakConcepts.length > 0
-      ? `Revisit "${weakConcepts[0]}" with a few more practice questions before moving on.`
+      ? `Revisit "${weakConcepts[0]}" — I'll re-teach it from a different angle before we move on.`
       : nextUnmastered
         ? `Great work — move on to "${nextUnmastered.label}" next.`
         : "You've mastered every concept in this lesson — time for a harder topic!";
 
-  return { scorePercent, masteredConcepts, weakConcepts, recommendation };
+  return {
+    scorePercent,
+    correctCount,
+    totalCount: total,
+    masteredConcepts,
+    weakConcepts,
+    masteredConceptIds,
+    weakConceptIds,
+    recommendation,
+  };
 }
 
 export function QuizStage({
@@ -82,9 +110,18 @@ export function QuizStage({
     return <ReportCard report={buildReport(questions, answers, conceptPlan)} />;
   }
 
+  const answeredCount = answers.filter((a) => a !== null).length;
+
   return (
     <div className="h-full overflow-y-auto p-6">
       <div className="mx-auto flex max-w-2xl flex-col gap-5">
+        <div className="flex items-center justify-between text-xs text-slate-400">
+          <span className="font-medium uppercase tracking-wider">Assessment</span>
+          <span>
+            {answeredCount} of {questions.length} answered
+          </span>
+        </div>
+
         {questions.map((q, qi) => {
           const selected = answers[qi];
           return (

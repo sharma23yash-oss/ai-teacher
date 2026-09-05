@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { buildSystemInstruction, buildTurns } from "@/lib/pedagogy-engine";
+import { getDocument, leadingContext, retrieve } from "@/lib/rag/store";
 import {
   AllProvidersFailedError,
   generateLessonWithFailover,
@@ -9,6 +10,7 @@ import {
   GESTURE_SIGNALS,
   isTeacherModelId,
   LANGUAGES,
+  LEARNER_LEVELS,
   TEACH_MODES,
   TEACHER_MODELS,
   TEACHER_PERSONAS,
@@ -18,7 +20,9 @@ import {
   type ConceptStatus,
   type GestureSignal,
   type Language,
+  type LearnerLevel,
   type LessonState,
+  type RetrievedChunk,
   type StudentProfile,
   type TeachAction,
   type TeacherModel,
@@ -70,6 +74,10 @@ function isLanguage(value: unknown): value is Language {
 
 function isTimeBudget(value: unknown): value is TimeBudget {
   return typeof value === "string" && (TIME_BUDGETS as readonly string[]).includes(value);
+}
+
+function isLearnerLevel(value: unknown): value is LearnerLevel {
+  return typeof value === "string" && (LEARNER_LEVELS as readonly string[]).includes(value);
 }
 
 function isTeachAction(value: unknown): value is TeachAction {
@@ -127,6 +135,9 @@ function parseRequestBody(body: unknown): TeachRequestBody | null {
   if (!isTeacherPersona(v.persona)) return null;
   if (!isLanguage(v.language)) return null;
   if (!isTimeBudget(v.timeBudget)) return null;
+  if (v.learnerLevel !== undefined && !isLearnerLevel(v.learnerLevel)) return null;
+  if (v.docId !== undefined && typeof v.docId !== "string") return null;
+  if (v.profileBriefing !== undefined && typeof v.profileBriefing !== "string") return null;
   if (v.action !== undefined && !isTeachAction(v.action)) return null;
   if (v.mode !== undefined && !isTeachMode(v.mode)) return null;
   if (
@@ -155,6 +166,9 @@ function parseRequestBody(body: unknown): TeachRequestBody | null {
     persona: v.persona,
     language: v.language,
     timeBudget: v.timeBudget,
+    learnerLevel: v.learnerLevel,
+    docId: v.docId,
+    profileBriefing: v.profileBriefing,
     action: v.action,
     mode: v.mode,
     conceptPlan: v.conceptPlan,
@@ -191,13 +205,60 @@ export async function POST(request: Request) {
   const teachMode: TeachMode = body.mode ?? "socratic";
   const requestedModel = TEACHER_MODELS[body.modelId];
 
+  // ---- Retrieval ---------------------------------------------------------
+  // Every turn with a loaded document gets its own retrieval pass, keyed to
+  // what the student just said AND to the concept currently being taught.
+  // Both halves matter: "why does that happen?" retrieves nothing on its own,
+  // but retrieves the right passage once the current concept is mixed in.
+  //
+  // The whole block is wrapped: retrieval is an enhancement, and a failure in
+  // it must degrade the lesson to ungrounded rather than fail the turn.
+  let retrieved: RetrievedChunk[] = [];
+  let documentName: string | undefined;
+
+  if (body.docId) {
+    try {
+      const document = getDocument(body.docId);
+      if (document) {
+        documentName = document.fileName;
+        const plannedYet = (body.lessonState?.concept_plan.length ?? 0) > 0;
+
+        if (!plannedYet) {
+          // First turn on this document: there is no question to retrieve
+          // against yet, and the model needs a wide enough view to build a
+          // syllabus rather than five paragraphs matched on "teach me this".
+          retrieved = leadingContext(body.docId);
+        } else {
+          const currentConcept = body.lessonState?.concept_plan.find(
+            (concept) => concept.status === "current",
+          );
+          retrieved = await retrieve(body.docId, {
+            query:
+              action === "take_quiz"
+                ? (body.lessonState?.concept_plan ?? []).map((c) => c.label).join(". ")
+                : body.message,
+            conceptHint: currentConcept?.label,
+            topK: action === "take_quiz" ? 8 : 5,
+          });
+        }
+      }
+    } catch (error) {
+      console.warn("Retrieval failed; continuing ungrounded:", error);
+      retrieved = [];
+    }
+  }
+
   const messages = buildTurns({
     history: body.history,
     currentMessage: body.message,
+    // Only reaches the prompt when retrieval produced nothing — see buildTurns.
     uploadedContent: body.uploadedContent,
     quizConceptPlan: action === "take_quiz" ? (body.conceptPlan ?? []) : undefined,
     gestureSignal: body.gestureSignal,
     lessonState: body.lessonState,
+    retrieved,
+    documentName,
+    profileBriefing: body.profileBriefing,
   });
 
   try {
@@ -215,13 +276,21 @@ export async function POST(request: Request) {
           body.persona,
           body.language,
           body.timeBudget,
+          body.learnerLevel ?? "beginner",
           Boolean(body.webcamFrame) && model.supportsVision,
           model.jsonMode,
           teachMode,
         ),
     });
 
-    return NextResponse.json<TeachResponseBody>({ ok: true, payload, servedBy });
+    return NextResponse.json<TeachResponseBody>({
+      ok: true,
+      payload,
+      servedBy,
+      // Surfaced so a grounded answer can be traced to its passages in the UI,
+      // and so an ungrounded one is visibly ungrounded.
+      groundedOn: retrieved.length > 0 ? retrieved : undefined,
+    });
   } catch (error) {
     if (error instanceof AllProvidersFailedError) {
       const rateLimited = error.failures.every((failure) => failure.kind === "rate_limit");

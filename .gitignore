@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Stray scratch folder from the desktop bridge — never part of the app
+"Claude outputs"/
+components/stage/placeholder-composition.tsx

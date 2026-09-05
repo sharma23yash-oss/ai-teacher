@@ -307,7 +307,27 @@ export const VOICE_GENDER_OPTIONS: VoiceGenderOption[] = [
   { value: "female", label: "Female voice" },
 ];
 
-export const LANGUAGES = ["english", "hindi", "hinglish"] as const;
+export const LANGUAGES = [
+  "english",
+  "hinglish",
+  "hindi",
+  "marathi",
+  "bengali",
+  "tamil",
+  "telugu",
+  "gujarati",
+  "kannada",
+  "malayalam",
+  "urdu",
+  "spanish",
+  "french",
+  "german",
+  "portuguese",
+  "arabic",
+  "russian",
+  "japanese",
+  "mandarin",
+] as const;
 
 export type Language = (typeof LANGUAGES)[number];
 
@@ -316,11 +336,211 @@ export interface LanguageOption {
   label: string;
 }
 
-export const LANGUAGE_OPTIONS: LanguageOption[] = [
-  { value: "english", label: "English" },
-  { value: "hindi", label: "Hindi" },
-  { value: "hinglish", label: "Hinglish (Mixed)" },
-];
+/**
+ * One row per teaching language, and the single source of truth for four
+ * things that must never drift apart: the label in the picker, the script the
+ * model is told to write avatar_script in, the Edge neural voices that speak
+ * it, and the locale the browser recogniser listens in.
+ *
+ * `script` is load-bearing rather than cosmetic. A neural voice trained on
+ * Devanagari mispronounces romanised Hindi badly, and an en-IN voice reading
+ * Devanagari produces nothing usable — so the prompt has to name the script
+ * explicitly, and it reads that name from here.
+ */
+export interface LanguageMeta {
+  value: Language;
+  label: string;
+  /** Written form the model must produce, named as the prompt should say it. */
+  scriptName: string;
+  /** BCP-47 tag for the browser SpeechRecognition engine. */
+  speechLocale: string;
+  /** Edge neural voice used for a male-voiced turn. */
+  voiceMale: string;
+  /** Edge neural voice used for a female-voiced turn. */
+  voiceFemale: string;
+  group: "Indian" | "International";
+}
+
+export const LANGUAGE_META: Record<Language, LanguageMeta> = {
+  english: {
+    value: "english",
+    label: "English",
+    scriptName: "Latin (Roman) script",
+    speechLocale: "en-IN",
+    voiceMale: "en-IN-PrabhatNeural",
+    voiceFemale: "en-IN-NeerjaNeural",
+    group: "Indian",
+  },
+  hinglish: {
+    value: "hinglish",
+    label: "Hinglish (Mixed)",
+    scriptName: "Latin (Roman) script",
+    // hi-IN listens to code-mixed speech; en-IN speaks phonetic Roman Hindi.
+    // The asymmetry is deliberate — see SPEECH_RECOGNITION_LOCALES below.
+    speechLocale: "hi-IN",
+    voiceMale: "en-IN-PrabhatNeural",
+    voiceFemale: "en-IN-NeerjaNeural",
+    group: "Indian",
+  },
+  hindi: {
+    value: "hindi",
+    label: "Hindi",
+    scriptName: "Devanagari script",
+    speechLocale: "hi-IN",
+    voiceMale: "hi-IN-MadhurNeural",
+    voiceFemale: "hi-IN-SwaraNeural",
+    group: "Indian",
+  },
+  marathi: {
+    value: "marathi",
+    label: "Marathi",
+    scriptName: "Devanagari script",
+    speechLocale: "mr-IN",
+    voiceMale: "mr-IN-ManoharNeural",
+    voiceFemale: "mr-IN-AarohiNeural",
+    group: "Indian",
+  },
+  bengali: {
+    value: "bengali",
+    label: "Bengali",
+    scriptName: "Bengali script",
+    speechLocale: "bn-IN",
+    voiceMale: "bn-IN-BashkarNeural",
+    voiceFemale: "bn-IN-TanishaaNeural",
+    group: "Indian",
+  },
+  tamil: {
+    value: "tamil",
+    label: "Tamil",
+    scriptName: "Tamil script",
+    speechLocale: "ta-IN",
+    voiceMale: "ta-IN-ValluvarNeural",
+    voiceFemale: "ta-IN-PallaviNeural",
+    group: "Indian",
+  },
+  telugu: {
+    value: "telugu",
+    label: "Telugu",
+    scriptName: "Telugu script",
+    speechLocale: "te-IN",
+    voiceMale: "te-IN-MohanNeural",
+    voiceFemale: "te-IN-ShrutiNeural",
+    group: "Indian",
+  },
+  gujarati: {
+    value: "gujarati",
+    label: "Gujarati",
+    scriptName: "Gujarati script",
+    speechLocale: "gu-IN",
+    voiceMale: "gu-IN-NiranjanNeural",
+    voiceFemale: "gu-IN-DhwaniNeural",
+    group: "Indian",
+  },
+  kannada: {
+    value: "kannada",
+    label: "Kannada",
+    scriptName: "Kannada script",
+    speechLocale: "kn-IN",
+    voiceMale: "kn-IN-GaganNeural",
+    voiceFemale: "kn-IN-SapnaNeural",
+    group: "Indian",
+  },
+  malayalam: {
+    value: "malayalam",
+    label: "Malayalam",
+    scriptName: "Malayalam script",
+    speechLocale: "ml-IN",
+    voiceMale: "ml-IN-MidhunNeural",
+    voiceFemale: "ml-IN-SobhanaNeural",
+    group: "Indian",
+  },
+  urdu: {
+    value: "urdu",
+    label: "Urdu",
+    scriptName: "Perso-Arabic (Urdu) script",
+    speechLocale: "ur-IN",
+    voiceMale: "ur-IN-SalmanNeural",
+    voiceFemale: "ur-IN-GulNeural",
+    group: "Indian",
+  },
+  spanish: {
+    value: "spanish",
+    label: "Spanish",
+    scriptName: "Latin (Roman) script",
+    speechLocale: "es-ES",
+    voiceMale: "es-ES-AlvaroNeural",
+    voiceFemale: "es-ES-ElviraNeural",
+    group: "International",
+  },
+  french: {
+    value: "french",
+    label: "French",
+    scriptName: "Latin (Roman) script",
+    speechLocale: "fr-FR",
+    voiceMale: "fr-FR-HenriNeural",
+    voiceFemale: "fr-FR-DeniseNeural",
+    group: "International",
+  },
+  german: {
+    value: "german",
+    label: "German",
+    scriptName: "Latin (Roman) script",
+    speechLocale: "de-DE",
+    voiceMale: "de-DE-ConradNeural",
+    voiceFemale: "de-DE-KatjaNeural",
+    group: "International",
+  },
+  portuguese: {
+    value: "portuguese",
+    label: "Portuguese",
+    scriptName: "Latin (Roman) script",
+    speechLocale: "pt-BR",
+    voiceMale: "pt-BR-AntonioNeural",
+    voiceFemale: "pt-BR-FranciscaNeural",
+    group: "International",
+  },
+  arabic: {
+    value: "arabic",
+    label: "Arabic",
+    scriptName: "Arabic script",
+    speechLocale: "ar-EG",
+    voiceMale: "ar-EG-ShakirNeural",
+    voiceFemale: "ar-EG-SalmaNeural",
+    group: "International",
+  },
+  russian: {
+    value: "russian",
+    label: "Russian",
+    scriptName: "Cyrillic script",
+    speechLocale: "ru-RU",
+    voiceMale: "ru-RU-DmitryNeural",
+    voiceFemale: "ru-RU-SvetlanaNeural",
+    group: "International",
+  },
+  japanese: {
+    value: "japanese",
+    label: "Japanese",
+    scriptName: "Japanese script (kanji, hiragana and katakana)",
+    speechLocale: "ja-JP",
+    voiceMale: "ja-JP-KeitaNeural",
+    voiceFemale: "ja-JP-NanamiNeural",
+    group: "International",
+  },
+  mandarin: {
+    value: "mandarin",
+    label: "Mandarin Chinese",
+    scriptName: "Simplified Chinese characters",
+    speechLocale: "zh-CN",
+    voiceMale: "zh-CN-YunxiNeural",
+    voiceFemale: "zh-CN-XiaoxiaoNeural",
+    group: "International",
+  },
+};
+
+export const LANGUAGE_OPTIONS: LanguageOption[] = LANGUAGES.map((value) => ({
+  value,
+  label: LANGUAGE_META[value].label,
+}));
 
 // BCP-47 tags handed to the browser's SpeechRecognition engine.
 //
@@ -334,26 +554,110 @@ export const LANGUAGE_OPTIONS: LanguageOption[] = [
 //     "mujhe samajh nahi aaya" came back as unrelated English. hi-IN is
 //     trained on the code-mixed speech Indians actually produce and returns
 //     Hindi in Devanagari, which Gemini reads without trouble.
-export const SPEECH_RECOGNITION_LOCALES: Record<Language, string> = {
-  english: "en-IN",
-  hinglish: "hi-IN",
-  hindi: "hi-IN",
-};
+export const SPEECH_RECOGNITION_LOCALES: Record<Language, string> = Object.fromEntries(
+  LANGUAGES.map((value) => [value, LANGUAGE_META[value].speechLocale]),
+) as Record<Language, string>;
 
-export const TIME_BUDGETS = ["crash_course", "standard", "deep_dive"] as const;
+export const TIME_BUDGETS = [
+  "crash_course",
+  "standard",
+  "deep_dive",
+  "hour_long",
+  "seven_day",
+] as const;
 
 export type TimeBudget = (typeof TIME_BUDGETS)[number];
 
 export interface TimeBudgetOption {
   value: TimeBudget;
   label: string;
+  /**
+   * How many concepts the plan should hold at this budget. A single
+   * micro-lesson wants 3-4; a multi-session plan is a curriculum and needs
+   * room for a real sequence, which is why this is not one fixed number.
+   */
+  conceptCount: string;
+  /** Written into the prompt verbatim, so each budget shapes depth not just length. */
+  shape: string;
 }
 
 export const TIME_BUDGET_OPTIONS: TimeBudgetOption[] = [
-  { value: "crash_course", label: "5-Minute Crash Course" },
-  { value: "standard", label: "15-Minute Standard Lesson" },
-  { value: "deep_dive", label: "Comprehensive Deep Dive" },
+  {
+    value: "crash_course",
+    label: "5-Minute Crash Course",
+    conceptCount: "exactly 3",
+    shape:
+      "Five minutes. Cover only the most important ideas, one sentence of context each, no tangents. Skip nuance the student can live without today.",
+  },
+  {
+    value: "standard",
+    label: "20-Minute Standard Lesson",
+    conceptCount: "exactly 3 to 4",
+    shape:
+      "Twenty minutes. A structured lesson over the key concepts, each with one worked example and one check question.",
+  },
+  {
+    value: "deep_dive",
+    label: "60-Minute Deep Dive",
+    conceptCount: "6 to 8",
+    shape:
+      "Sixty minutes. Go deeper: full explanations, multiple examples, edge cases, a question after every concept, and a closing assessment.",
+  },
+  {
+    value: "hour_long",
+    label: "Full Topic Mastery",
+    conceptCount: "8 to 10",
+    shape:
+      "A complete course on the topic, taught end to end. Build a full learning path from fundamentals through to advanced application, and teach it in order.",
+  },
+  {
+    value: "seven_day",
+    label: "7-Day Study Plan",
+    conceptCount: "exactly 7",
+    shape:
+      "A seven-day revision plan. Produce exactly one concept per day and label each one with its day, so concept_plan reads as Day 1 through Day 7. Teach the current day's concept now, and tell the student what tomorrow covers.",
+  },
 ];
+
+/**
+ * Section 6 of the brief lets the learner state their level; this makes it a
+ * control rather than something they have to remember to type. The
+ * descriptions are written into the prompt verbatim.
+ */
+export const LEARNER_LEVELS = ["beginner", "intermediate", "advanced"] as const;
+
+export type LearnerLevel = (typeof LEARNER_LEVELS)[number];
+
+export interface LearnerLevelOption {
+  value: LearnerLevel;
+  label: string;
+  instruction: string;
+}
+
+export const LEARNER_LEVEL_OPTIONS: LearnerLevelOption[] = [
+  {
+    value: "beginner",
+    label: "Beginner",
+    instruction:
+      "The student is a beginner. Assume no prior exposure. Use simple everyday terminology, lean on analogies from ordinary life, and introduce each technical term only after the idea behind it is already clear. Never assume a prerequisite without checking it first.",
+  },
+  {
+    value: "intermediate",
+    label: "Intermediate",
+    instruction:
+      "The student is at an intermediate level. They know the fundamentals, so skip the ground floor. Use correct technical terminology, and spend the time on practical examples, how the pieces fit together, and where people usually go wrong.",
+  },
+  {
+    value: "advanced",
+    label: "Advanced",
+    instruction:
+      "The student is advanced. Be precise and technical. Use the field's real vocabulary without softening it, include the underlying mathematics or implementation detail where it matters, discuss trade-offs and edge cases, and pitch questions at application and analysis rather than recall.",
+  },
+];
+
+export const LEARNER_LEVEL_INSTRUCTIONS: Record<LearnerLevel, string> = Object.fromEntries(
+  LEARNER_LEVEL_OPTIONS.map((option) => [option.value, option.instruction]),
+) as Record<LearnerLevel, string>;
 
 // Non-verbal signals recognised from the webcam during a live video call and
 // translated into a pedagogical instruction for the engine.
@@ -438,6 +742,17 @@ export interface TeachRequestBody {
   persona: TeacherPersona;
   language: Language;
   timeBudget: TimeBudget;
+  // Section 6 of the brief: the learner's stated level. Optional so older
+  // clients keep working; the engine defaults to "beginner".
+  learnerLevel?: LearnerLevel;
+  // Handle for a document indexed by /api/upload. When present the engine
+  // retrieves the passages relevant to this turn and grounds its answer in
+  // them, instead of relying on what the model happens to remember.
+  docId?: string;
+  // A short briefing on what earlier sessions established about this learner
+  // (see lib/learner-profile.ts). Sent so a returning student is met with
+  // continuity rather than a blank slate.
+  profileBriefing?: string;
   action?: TeachAction;
   // Defaults to "socratic" (the normal teaching loop) when omitted.
   mode?: TeachMode;
@@ -468,7 +783,17 @@ export interface ServedBy {
 }
 
 export type TeachResponseBody =
-  | { ok: true; payload: LessonPayload; servedBy: ServedBy }
+  | {
+      ok: true;
+      payload: LessonPayload;
+      servedBy: ServedBy;
+      /**
+       * The passages retrieval fed the model this turn. Surfaced in the UI so
+       * a grounded answer can be traced back to the document it came from —
+       * and so an ungrounded one is visibly ungrounded.
+       */
+      groundedOn?: RetrievedChunk[];
+    }
   | { ok: false; error: string };
 
 export interface ProvidersResponseBody {
@@ -476,8 +801,39 @@ export interface ProvidersResponseBody {
   configured: AiProvider[];
 }
 
+/** One retrievable passage of an uploaded document. */
+export interface KnowledgeChunk {
+  id: string;
+  /** 1-based position in the document, used for "page 3 of your notes" style citations. */
+  index: number;
+  /** Nearest preceding heading, when the document had one. */
+  heading?: string;
+  text: string;
+}
+
+/** A passage that retrieval selected for this turn, with its relevance score. */
+export interface RetrievedChunk extends KnowledgeChunk {
+  score: number;
+}
+
+export interface KnowledgeBaseSummary {
+  docId: string;
+  fileName: string;
+  /** Characters of source text indexed — the honest size, before chunking. */
+  charCount: number;
+  chunkCount: number;
+  /** "embeddings" when vectors were built, "lexical" when we fell back. */
+  retrieval: "embeddings" | "lexical";
+}
+
 export type UploadResponseBody =
-  | { ok: true; fileName: string; text: string }
+  | {
+      ok: true;
+      fileName: string;
+      /** Kept for the first turn and for re-indexing if the server restarts. */
+      text: string;
+      knowledgeBase: KnowledgeBaseSummary;
+    }
   | { ok: false; error: string };
 
 export interface TtsRequestBody {
@@ -505,7 +861,46 @@ export type RefinePromptResponseBody =
 // of the Gemini response schema.
 export interface QuizReport {
   scorePercent: number;
+  correctCount: number;
+  totalCount: number;
   masteredConcepts: string[];
   weakConcepts: string[];
+  /** concept_plan ids the student got wrong — what the lesson must revisit. */
+  weakConceptIds: string[];
+  /** concept_plan ids the student got right. */
+  masteredConceptIds: string[];
   recommendation: string;
+}
+
+// ---------------------------------------------------------------------------
+// Persistent learner profile (section 14)
+// ---------------------------------------------------------------------------
+
+export interface TopicRecord {
+  topic: string;
+  /** ISO timestamp of the most recent session on this topic. */
+  lastStudiedAt: string;
+  sessions: number;
+  conceptsCompleted: string[];
+  conceptsWeak: string[];
+  /** Every quiz score recorded for this topic, oldest first. */
+  scores: number[];
+}
+
+export interface LearnerProfileRecord {
+  version: 1;
+  createdAt: string;
+  updatedAt: string;
+  preferredLanguage: Language;
+  preferredLevel: LearnerLevel;
+  preferredPersona: TeacherPersona;
+  preferredTimeBudget: TimeBudget;
+  topics: TopicRecord[];
+  /** Flat, newest-first activity log shown in the Progress panel. */
+  history: {
+    at: string;
+    topic: string;
+    kind: "lesson" | "quiz" | "mastery";
+    detail: string;
+  }[];
 }

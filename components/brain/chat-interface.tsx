@@ -12,7 +12,9 @@ import {
   Send,
   X,
 } from "lucide-react";
+import { LANGUAGE_META } from "@/lib/types";
 import type { ChatMessage, Language, RefinePromptResponseBody } from "@/lib/types";
+import { SHOWCASE_MODE } from "@/lib/build-flags";
 import { useSpeechRecognition } from "@/lib/use-speech-recognition";
 
 const MIN_DRAFT_CHARS_TO_REFINE = 3;
@@ -20,19 +22,33 @@ const MIN_DRAFT_CHARS_TO_REFINE = 3;
 // What the microphone is actually listening for. Hinglish is captured by the
 // Hindi engine (see SPEECH_RECOGNITION_LOCALES), so say so rather than leaving
 // the student wondering why their words come back in Devanagari.
-const MIC_LANGUAGE_LABEL: Record<Language, string> = {
-  english: "Indian English",
-  hindi: "हिन्दी",
-  hinglish: "Hinglish · हिन्दी engine",
-};
+function micLanguageLabel(language: Language): string {
+  if (language === "english") return "Indian English";
+  if (language === "hinglish") return "Hinglish · हिन्दी engine";
+  return LANGUAGE_META[language]?.label ?? language;
+}
 
 // Shown on a fresh session, before the student has sent anything — one tap
 // sends the pill's text as the first message, same as typing it in.
-const STARTER_SUGGESTIONS = [
+// Teaching prompts, because the first thing a new student sees should show
+// them what the tutor does. The creator-story pills are personal-build only
+// (see lib/build-flags.ts) — they belong in a portfolio demo, not in front of
+// someone here to learn something.
+const TEACHING_SUGGESTIONS = [
+  "Teach me Ohm's Law with simple examples",
+  "I have 7 days before my exam — plan my Machine Learning revision",
+  "Explain photosynthesis to me in Hindi",
+];
+
+const SHOWCASE_SUGGESTIONS = [
   "Meet the Creator: Who is Yash Sharma?",
   "Behind the Code: The sleepless nights & architecture",
   "Founder's Vision: Why Yash built this platform",
 ];
+
+const STARTER_SUGGESTIONS = SHOWCASE_MODE
+  ? [...TEACHING_SUGGESTIONS, ...SHOWCASE_SUGGESTIONS]
+  : TEACHING_SUGGESTIONS;
 
 interface Quote {
   quote: string;
@@ -319,7 +335,7 @@ export function ChatInterface({
                 />
               ))}
             </span>
-            Listening in {MIC_LANGUAGE_LABEL[language]} (hands-free)
+            Listening in {micLanguageLabel(language)} (hands-free)
           </div>
         )}
         {isPaused && !isListening && (
@@ -481,7 +497,7 @@ export function ChatInterface({
                 ? "Voice input isn't supported in this browser"
                 : micIsActive
                   ? "Stop hands-free listening"
-                  : `Start hands-free listening (${MIC_LANGUAGE_LABEL[language]})`
+                  : `Start hands-free listening (${micLanguageLabel(language)})`
             }
             className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition disabled:cursor-not-allowed disabled:opacity-40 ${
               isListening

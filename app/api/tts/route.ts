@@ -10,7 +10,13 @@ import {
   type TtsErrorBody,
   type VoiceGender,
 } from "@/lib/types";
-import { resolveVoiceProfile, sanitizeForSpeech } from "@/lib/tts-voices";
+import {
+  fallbackVoiceProfile,
+  resolveVoiceGender,
+  resolveVoiceProfile,
+  sanitizeForSpeech,
+  type VoiceProfile,
+} from "@/lib/tts-voices";
 
 export const runtime = "nodejs";
 
@@ -54,6 +60,34 @@ function streamToBuffer(stream: Readable): Promise<Buffer> {
   });
 }
 
+/**
+ * One synthesis attempt against one voice. Each attempt gets its own
+ * MsEdgeTTS instance: the socket is bound to the voice chosen in
+ * setMetadata, so a retry on a different voice cannot reuse it.
+ */
+async function synthesize(profile: VoiceProfile, speechText: string): Promise<Buffer> {
+  const tts = new MsEdgeTTS();
+  try {
+    await tts.setMetadata(profile.voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
+    const { audioStream } = tts.toStream(speechText, {
+      rate: profile.rate,
+      pitch: profile.pitch,
+      volume: profile.volume,
+    });
+    const audioBuffer = await streamToBuffer(audioStream);
+    if (audioBuffer.byteLength === 0) {
+      throw new Error("Edge TTS returned an empty audio stream.");
+    }
+    return audioBuffer;
+  } finally {
+    try {
+      tts.close();
+    } catch {
+      // close() throws when the socket never opened — nothing to clean up.
+    }
+  }
+}
+
 export async function POST(request: Request) {
   let rawBody: unknown;
   try {
@@ -92,50 +126,57 @@ export async function POST(request: Request) {
   }
 
   const profile = resolveVoiceProfile(persona, language, requestedGender);
+  const effectiveGender = resolveVoiceGender(persona, requestedGender);
 
-  const tts = new MsEdgeTTS();
+  // Two attempts, never more. The app now offers nineteen teaching languages,
+  // and if Edge ever retires one of their voices the correct behaviour is a
+  // lesson that still speaks — accented, but audible — rather than a silent
+  // one. The header says which voice actually spoke so a wrong-sounding turn
+  // is diagnosable from the network tab instead of guesswork.
+  let audioBuffer: Buffer | null = null;
+  let usedProfile = profile;
+  let degraded = false;
+
   try {
-    await tts.setMetadata(profile.voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
-    const { audioStream } = tts.toStream(speechText, {
-      rate: profile.rate,
-      pitch: profile.pitch,
-      volume: profile.volume,
-    });
-    const audioBuffer = await streamToBuffer(audioStream);
-
-    if (audioBuffer.byteLength === 0) {
-      return NextResponse.json<TtsErrorBody>(
-        { error: "Edge TTS returned an empty audio stream." },
-        { status: 502 },
-      );
-    }
-
-    return new NextResponse(new Uint8Array(audioBuffer), {
-      status: 200,
-      headers: {
-        "Content-Type": "audio/mpeg",
-        "Content-Length": String(audioBuffer.byteLength),
-        "Cache-Control": "no-store",
-        "X-Tts-Voice": profile.voice,
-        "X-Tts-Rate": profile.rate,
-      },
-    });
-  } catch (error) {
-    // The client treats any non-2xx as "use the browser fallback voice", so a
-    // warn here is enough — this is an expected degradation, not a crash.
+    audioBuffer = await synthesize(profile, speechText);
+  } catch (primaryError) {
     console.warn(
-      "Edge TTS synthesis failed:",
-      error instanceof Error ? error.message : error,
+      `Edge TTS failed on ${profile.voice}:`,
+      primaryError instanceof Error ? primaryError.message : primaryError,
     );
+    const fallback = fallbackVoiceProfile(profile, effectiveGender);
+    if (fallback.voice !== profile.voice) {
+      try {
+        audioBuffer = await synthesize(fallback, speechText);
+        usedProfile = fallback;
+        degraded = true;
+      } catch (fallbackError) {
+        console.warn(
+          `Edge TTS fallback failed on ${fallback.voice}:`,
+          fallbackError instanceof Error ? fallbackError.message : fallbackError,
+        );
+      }
+    }
+  }
+
+  if (!audioBuffer) {
+    // The client treats any non-2xx as "use the browser fallback voice", so
+    // this is an expected degradation, not a crash.
     return NextResponse.json<TtsErrorBody>(
       { error: "Speech synthesis is unavailable right now." },
       { status: 502 },
     );
-  } finally {
-    try {
-      tts.close();
-    } catch {
-      // close() throws when the socket never opened — nothing to clean up.
-    }
   }
+
+  return new NextResponse(new Uint8Array(audioBuffer), {
+    status: 200,
+    headers: {
+      "Content-Type": "audio/mpeg",
+      "Content-Length": String(audioBuffer.byteLength),
+      "Cache-Control": "no-store",
+      "X-Tts-Voice": usedProfile.voice,
+      "X-Tts-Rate": usedProfile.rate,
+      "X-Tts-Degraded": degraded ? "1" : "0",
+    },
+  });
 }
