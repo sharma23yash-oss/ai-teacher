@@ -1,15 +1,8 @@
 import type { Readable } from "stream";
 import { NextResponse } from "next/server";
 import { MsEdgeTTS, OUTPUT_FORMAT } from "msedge-tts";
-import {
-  LANGUAGES,
-  TEACHER_PERSONAS,
-  VOICE_GENDERS,
-  type Language,
-  type TeacherPersona,
-  type TtsErrorBody,
-  type VoiceGender,
-} from "@/lib/types";
+import type { TtsErrorBody } from "@/lib/types";
+import { formatZodError, ttsRequestSchema } from "@/lib/schemas";
 import {
   fallbackVoiceProfile,
   resolveVoiceGender,
@@ -20,25 +13,9 @@ import {
 
 export const runtime = "nodejs";
 
-const MAX_TEXT_CHARS = 2000;
 // A single turn is a few seconds of speech; anything beyond this means the
 // upstream socket has stalled rather than that the text was unusually long.
 const SYNTHESIS_TIMEOUT_MS = 20_000;
-
-const BAD_REQUEST_MESSAGE =
-  "Expected { text: string, persona: TeacherPersona, language: Language, voiceGender: VoiceGender }.";
-
-function isTeacherPersona(value: unknown): value is TeacherPersona {
-  return typeof value === "string" && (TEACHER_PERSONAS as readonly string[]).includes(value);
-}
-
-function isLanguage(value: unknown): value is Language {
-  return typeof value === "string" && (LANGUAGES as readonly string[]).includes(value);
-}
-
-function isVoiceGender(value: unknown): value is VoiceGender {
-  return typeof value === "string" && (VOICE_GENDERS as readonly string[]).includes(value);
-}
 
 function streamToBuffer(stream: Readable): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -99,25 +76,16 @@ export async function POST(request: Request) {
     );
   }
 
-  if (typeof rawBody !== "object" || rawBody === null) {
-    return NextResponse.json<TtsErrorBody>({ error: BAD_REQUEST_MESSAGE }, { status: 400 });
+  const parsedBody = ttsRequestSchema.safeParse(rawBody);
+  if (!parsedBody.success) {
+    return NextResponse.json<TtsErrorBody>(
+      { error: formatZodError(parsedBody.error) },
+      { status: 400 },
+    );
   }
-  const { text, persona, language, voiceGender } = rawBody as Record<string, unknown>;
+  const { text, persona, language, voiceGender: requestedGender } = parsedBody.data;
 
-  if (typeof text !== "string" || !text.trim()) {
-    return NextResponse.json<TtsErrorBody>({ error: BAD_REQUEST_MESSAGE }, { status: 400 });
-  }
-  if (!isTeacherPersona(persona)) {
-    return NextResponse.json<TtsErrorBody>({ error: BAD_REQUEST_MESSAGE }, { status: 400 });
-  }
-  if (!isLanguage(language)) {
-    return NextResponse.json<TtsErrorBody>({ error: BAD_REQUEST_MESSAGE }, { status: 400 });
-  }
-  // Older clients that predate the voice switcher fall back to the persona's
-  // own default rather than being rejected outright.
-  const requestedGender: VoiceGender = isVoiceGender(voiceGender) ? voiceGender : "male";
-
-  const speechText = sanitizeForSpeech(text).slice(0, MAX_TEXT_CHARS);
+  const speechText = sanitizeForSpeech(text);
   if (!speechText) {
     return NextResponse.json<TtsErrorBody>(
       { error: "Nothing speakable left after sanitising the text." },

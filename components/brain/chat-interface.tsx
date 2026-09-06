@@ -1,23 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import {
-  Camera,
-  FileText,
-  Image as ImageIcon,
-  Loader2,
-  Mic,
-  MicOff,
-  Plus,
-  Send,
-  X,
-} from "lucide-react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { FileText, Loader2, Mic, MicOff, Plus, Send, X } from "lucide-react";
 import { LANGUAGE_META } from "@/lib/types";
 import type { ChatMessage, Language, RefinePromptResponseBody } from "@/lib/types";
 import { SHOWCASE_MODE } from "@/lib/build-flags";
 import { useSpeechRecognition } from "@/lib/use-speech-recognition";
 
 const MIN_DRAFT_CHARS_TO_REFINE = 3;
+
+// What the '+' button's hidden file input accepts. .docx/.pptx are still
+// supported end-to-end (see lib/rag/extract.ts) but are uploaded from the
+// Stage panel's dropzone; this one is the quick "drop in some reading"
+// path right from the conversation, scoped to the formats that read cleanly
+// without any conversion step.
+const DOCUMENT_UPLOAD_ACCEPT = ".pdf,.txt,.md";
 
 // What the microphone is actually listening for. Hinglish is captured by the
 // Hindi engine (see SPEECH_RECOGNITION_LOCALES), so say so rather than leaving
@@ -79,6 +76,18 @@ const DAILY_QUOTES: Quote[] = [
   },
 ];
 
+// A one-off "Document loaded" line dropped into the chat thread at the point
+// it happened. Rendered inline with the messages but never sent to the
+// model — ChatMessage's role is only "student" | "teacher" (see lib/types.ts
+// and the teach-request Zod schema), so this stays purely a client-side
+// timeline marker rather than fabricated conversation history.
+interface DocumentNotice {
+  id: string;
+  fileName: string;
+  /** Render this notice right before messages[afterIndex] (or at the end if afterIndex === messages.length). */
+  afterIndex: number;
+}
+
 export function ChatInterface({
   messages,
   onSend,
@@ -87,6 +96,11 @@ export function ChatInterface({
   isTeacherSpeaking,
   onListeningChange,
   onUnlockAudio,
+  onUpload,
+  isUploading,
+  uploadError,
+  uploadedFileName,
+  onClearUpload,
 }: {
   messages: ChatMessage[];
   onSend: (content: string) => void;
@@ -95,6 +109,12 @@ export function ChatInterface({
   isTeacherSpeaking: boolean;
   onListeningChange: (isListening: boolean) => void;
   onUnlockAudio: () => void;
+  /** Wired to handleUpload in dashboard.tsx — the same pipeline the Stage panel's dropzone uses. */
+  onUpload: (file: File) => void;
+  isUploading: boolean;
+  uploadError: string | null;
+  uploadedFileName: string | null;
+  onClearUpload: () => void;
 }) {
   const [draft, setDraft] = useState("");
   // Picked client-side, after mount, on purpose: a random pick made during SSR
@@ -103,16 +123,16 @@ export function ChatInterface({
   const [dailyQuote, setDailyQuote] = useState<Quote | null>(null);
   const [isRefining, setIsRefining] = useState(false);
   const [refineError, setRefineError] = useState<string | null>(null);
-  const [attachments, setAttachments] = useState<File[]>([]);
-  const [isAttachMenuOpen, setIsAttachMenuOpen] = useState(false);
+  const [documentNotices, setDocumentNotices] = useState<DocumentNotice[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const attachMenuRef = useRef<HTMLDivElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
-  const documentInputRef = useRef<HTMLInputElement>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
   // Text already in the input when the mic was activated, so live results
   // extend it instead of clobbering whatever the student had already typed.
   const baseTextRef = useRef("");
+  // Seeded from the current prop so a document already loaded before this
+  // component mounts (e.g. uploaded earlier via the Stage panel's dropzone)
+  // doesn't fire a spurious "just loaded" notice on first render.
+  const prevUploadedFileNameRef = useRef<string | null>(uploadedFileName);
 
   const {
     isSupported: isMicSupported,
@@ -161,31 +181,24 @@ export function ChatInterface({
     onListeningChange(isListening);
   }, [isListening, onListeningChange]);
 
-  // Closes the attach popover on an outside click, same as any standard menu.
+  // Drops a "Document loaded" marker into the thread the moment a new upload
+  // succeeds (uploadedFileName transitioning to a new non-null value) —
+  // guarded so re-renders that don't represent a *new* upload never duplicate
+  // it, and so clearing the upload (uploadedFileName -> null) doesn't erase
+  // the marker from the thread's history.
   useEffect(() => {
-    if (!isAttachMenuOpen) return;
-    function handleClickOutside(e: MouseEvent) {
-      if (attachMenuRef.current && !attachMenuRef.current.contains(e.target as Node)) {
-        setIsAttachMenuOpen(false);
-      }
+    if (uploadedFileName && uploadedFileName !== prevUploadedFileNameRef.current) {
+      setDocumentNotices((prev) => [
+        ...prev,
+        { id: `doc-notice-${Date.now()}`, fileName: uploadedFileName, afterIndex: messages.length },
+      ]);
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isAttachMenuOpen]);
-
-  // One object URL per image attachment, recreated only when the attachments
-  // array itself changes — revoked on the next change (or unmount) so the
-  // previous set never leaks.
-  const attachmentPreviewUrls = useMemo(
-    () =>
-      attachments.map((file) => (file.type.startsWith("image/") ? URL.createObjectURL(file) : null)),
-    [attachments],
-  );
-  useEffect(() => {
-    return () => {
-      attachmentPreviewUrls.forEach((url) => url && URL.revokeObjectURL(url));
-    };
-  }, [attachmentPreviewUrls]);
+    prevUploadedFileNameRef.current = uploadedFileName;
+    // messages.length is read only to timestamp a brand-new notice at its
+    // current position in the thread — it intentionally doesn't gate the
+    // effect (that's uploadedFileName's job) or it would fire on every turn.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uploadedFileName]);
 
   function handleMicToggle() {
     // The mic button is a user gesture, and it is very often the first one of
@@ -242,19 +255,12 @@ export function ChatInterface({
     }
   }
 
-  function handleFilesSelected(e: ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      setAttachments((prev) => [...prev, ...Array.from(files)]);
-    }
+  function handleDocumentSelected(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
     // Lets the student pick the exact same file again later (a bare re-select
     // of an unchanged value doesn't fire onChange otherwise).
     e.target.value = "";
-    setIsAttachMenuOpen(false);
-  }
-
-  function handleRemoveAttachment(index: number) {
-    setAttachments((prev) => prev.filter((_, i) => i !== index));
+    if (file) onUpload(file);
   }
 
   const micIsActive = isListening || isPaused;
@@ -290,20 +296,33 @@ export function ChatInterface({
             </div>
           </div>
         )}
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.role === "student" ? "justify-end" : "justify-start"}`}
-          >
-            <div
-              className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                message.role === "student"
-                  ? "rounded-br-sm bg-indigo-600 text-white"
-                  : "rounded-bl-sm bg-slate-100 text-slate-800"
-              }`}
-            >
-              {message.content}
-            </div>
+        {Array.from({ length: messages.length + 1 }).map((_, index) => (
+          <div key={`slot-${index}`}>
+            {documentNotices
+              .filter((notice) => notice.afterIndex === index)
+              .map((notice) => (
+                <div key={notice.id} className="flex justify-center py-1">
+                  <span className="flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500">
+                    <FileText size={12} />
+                    Document &ldquo;{notice.fileName}&rdquo; loaded. Ask any question to begin.
+                  </span>
+                </div>
+              ))}
+            {index < messages.length && (
+              <div
+                className={`flex ${messages[index].role === "student" ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                    messages[index].role === "student"
+                      ? "rounded-br-sm bg-indigo-600 text-white"
+                      : "rounded-bl-sm bg-slate-100 text-slate-800"
+                  }`}
+                >
+                  {messages[index].content}
+                </div>
+              </div>
+            )}
           </div>
         ))}
         {isThinking && (
@@ -369,111 +388,51 @@ export function ChatInterface({
           </div>
         )}
 
-        {attachments.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-2">
-            {attachments.map((file, index) => {
-              const previewUrl = attachmentPreviewUrls[index];
-              return (
-                <div
-                  key={`${file.name}-${index}`}
-                  className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-1.5 pr-2 text-xs text-slate-700 transition-all"
-                >
-                  {previewUrl ? (
-                    <img
-                      src={previewUrl}
-                      alt={file.name}
-                      className="h-8 w-8 rounded object-cover"
-                    />
-                  ) : (
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded bg-slate-200 text-slate-500">
-                      <FileText size={16} />
-                    </span>
-                  )}
-                  <span className="max-w-[9rem] truncate">{file.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveAttachment(index)}
-                    aria-label={`Remove ${file.name}`}
-                    className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-300 text-slate-600 transition hover:bg-slate-400 hover:text-slate-900"
-                  >
-                    <X size={10} />
-                  </button>
-                </div>
-              );
-            })}
+        {isUploading && (
+          <div className="mb-2 flex justify-start">
+            <span className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-500">
+              <Loader2 size={12} className="animate-spin" />
+              Reading document…
+            </span>
           </div>
         )}
+        {!isUploading && uploadedFileName && (
+          <div className="mb-2 flex justify-start">
+            <div className="flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 py-1.5 pl-2.5 pr-2 text-xs text-indigo-700">
+              <FileText size={14} />
+              <span className="max-w-[12rem] truncate">
+                📄 {uploadedFileName} <span className="font-medium">(Ready)</span>
+              </span>
+              <button
+                type="button"
+                onClick={onClearUpload}
+                aria-label={`Remove ${uploadedFileName}`}
+                className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-indigo-200 text-indigo-700 transition hover:bg-indigo-300"
+              >
+                <X size={10} />
+              </button>
+            </div>
+          </div>
+        )}
+        {uploadError && <p className="mb-2 px-1 text-xs text-red-500">{uploadError}</p>}
 
         <form onSubmit={handleSubmit} className="flex items-center gap-2">
-          <div ref={attachMenuRef} className="relative shrink-0">
-            {isAttachMenuOpen && (
-              <div className="absolute bottom-full left-0 mb-2 w-48 rounded-xl border border-white/10 bg-[#111111]/90 p-1.5 shadow-2xl backdrop-blur-md transition-all">
-                <button
-                  type="button"
-                  onClick={() => cameraInputRef.current?.click()}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-slate-200 transition-all hover:bg-white/10"
-                >
-                  <Camera size={16} />
-                  Camera
-                </button>
-                <button
-                  type="button"
-                  onClick={() => galleryInputRef.current?.click()}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-slate-200 transition-all hover:bg-white/10"
-                >
-                  <ImageIcon size={16} />
-                  Photo / Gallery
-                </button>
-                <button
-                  type="button"
-                  onClick={() => documentInputRef.current?.click()}
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-slate-200 transition-all hover:bg-white/10"
-                >
-                  <FileText size={16} />
-                  Document
-                </button>
-              </div>
-            )}
-
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handleFilesSelected}
-            />
-            <input
-              ref={galleryInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={handleFilesSelected}
-            />
-            <input
-              ref={documentInputRef}
-              type="file"
-              accept=".pdf,.doc,.docx,.ppt,.pptx"
-              multiple
-              className="hidden"
-              onChange={handleFilesSelected}
-            />
-
-            <button
-              type="button"
-              onClick={() => setIsAttachMenuOpen((prev) => !prev)}
-              aria-expanded={isAttachMenuOpen}
-              title="Add an attachment"
-              className={`flex h-10 w-10 items-center justify-center rounded-full transition-all ${
-                isAttachMenuOpen
-                  ? "bg-indigo-100 text-indigo-600"
-                  : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-              }`}
-            >
-              <Plus size={18} />
-            </button>
-          </div>
+          <input
+            ref={uploadInputRef}
+            type="file"
+            accept={DOCUMENT_UPLOAD_ACCEPT}
+            className="hidden"
+            onChange={handleDocumentSelected}
+          />
+          <button
+            type="button"
+            onClick={() => uploadInputRef.current?.click()}
+            disabled={isUploading}
+            title="Upload a document (PDF, TXT, or MD) to teach from"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-all hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isUploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
+          </button>
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}

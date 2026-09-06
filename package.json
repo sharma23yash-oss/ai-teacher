@@ -15,6 +15,8 @@
     "@react-three/fiber": "^9.7.0",
     "@remotion/player": "^4.0.518",
     "@types/three": "^0.185.4",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.4",
     "cohere-ai": "^8.1.0",
     "groq-sdk": "^1.6.0",
     "lucide-react": "^1.37.0",
@@ -26,7 +28,8 @@
     "react-dom": "19.2.8",
     "remotion": "^4.0.518",
     "server-only": "^0.0.1",
-    "three": "^0.185.1"
+    "three": "^0.185.1",
+    "zod": "^4.5.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

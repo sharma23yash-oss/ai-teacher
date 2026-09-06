@@ -30,6 +30,11 @@ export function BrainPanel({
   onResetProfile,
   groundedOn,
   documentName,
+  onUpload,
+  isUploading,
+  uploadError,
+  uploadedFileName,
+  onClearUpload,
 }: {
   concepts: ConceptNode[];
   /** Concept id to flash a mastery-ping on right now, or null for none. */
@@ -45,6 +50,12 @@ export function BrainPanel({
   onResetProfile: () => void;
   groundedOn: RetrievedChunk[];
   documentName: string | null;
+  /** Wired to handleUpload in dashboard.tsx — the same pipeline the Stage panel's dropzone uses. */
+  onUpload: (file: File) => void;
+  isUploading: boolean;
+  uploadError: string | null;
+  uploadedFileName: string | null;
+  onClearUpload: () => void;
 }) {
   const [tab, setTab] = useState<Tab>("lesson");
   const topicCount = profile.topics.length;
@@ -110,6 +121,11 @@ export function BrainPanel({
               isTeacherSpeaking={isTeacherSpeaking}
               onListeningChange={onListeningChange}
               onUnlockAudio={onUnlockAudio}
+              onUpload={onUpload}
+              isUploading={isUploading}
+              uploadError={uploadError}
+              uploadedFileName={uploadedFileName}
+              onClearUpload={onClearUpload}
             />
           </div>
         </>

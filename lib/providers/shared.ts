@@ -14,6 +14,13 @@ export interface ProviderRequest {
   /** Base64 JPEG, no data: prefix. Only passed to models with supportsVision. */
   webcamFrame?: string;
   extendedThinking: boolean;
+  /**
+   * Per-turn canary token (see lib/security/canary.ts), already woven into
+   * systemInstruction. Every provider adapter streams its completion and
+   * scans the growing buffer for this exact string, aborting immediately if
+   * it is ever reflected back — proof the system instruction leaked.
+   */
+  canaryToken: string;
 }
 
 export interface ProviderResponse {
@@ -38,7 +45,8 @@ export type ProviderFailureKind =
   | "rate_limit"
   | "unavailable"
   | "bad_response"
-  | "bad_request";
+  | "bad_request"
+  | "canary_triggered";
 
 export class ProviderError extends Error {
   readonly kind: ProviderFailureKind;
@@ -65,7 +73,8 @@ export class ProviderError extends Error {
       this.kind === "auth" ||
       this.kind === "rate_limit" ||
       this.kind === "unavailable" ||
-      this.kind === "bad_response"
+      this.kind === "bad_response" ||
+      this.kind === "canary_triggered"
     );
   }
 }

@@ -44,3 +44,8 @@ next-env.d.ts
 "Claude outputs"/
 components/stage/placeholder-composition.tsx
 .next-stale-*
+_verify_src.tgz
+_canary_test_*
+_build_verify.tgz
+_build_verify2.tgz
+_build_verify3.tgz

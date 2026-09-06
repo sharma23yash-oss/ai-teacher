@@ -703,7 +703,17 @@ export function Dashboard() {
     });
   }
 
+  // Mirrors the server's own limit in app/api/upload/route.ts — this is only
+  // a fast local rejection so a too-large file never leaves the browser; the
+  // server enforces the real limit regardless of what the client sends.
+  const MAX_UPLOAD_BYTES = 4.5 * 1024 * 1024;
+
   async function handleUpload(file: File) {
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setUploadError("File is too large (max 4.5MB).");
+      return;
+    }
+
     setIsUploading(true);
     setUploadError(null);
 
@@ -816,6 +826,11 @@ export function Dashboard() {
             onResetProfile={handleResetProfile}
             groundedOn={groundedOn}
             documentName={uploadedNote?.fileName ?? null}
+            onUpload={handleUpload}
+            isUploading={isUploading}
+            uploadError={uploadError}
+            uploadedFileName={uploadedNote?.fileName ?? null}
+            onClearUpload={() => setUploadedNote(null)}
           />
         </div>
       </main>

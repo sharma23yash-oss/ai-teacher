@@ -3,11 +3,11 @@ import { GoogleGenAI } from "@google/genai";
 import Groq from "groq-sdk";
 import { isGeminiConfigured } from "@/lib/providers/gemini";
 import { isGroqConfigured } from "@/lib/providers/groq";
+import { formatZodError, refineRequestSchema } from "@/lib/schemas";
+import { redactPii } from "@/lib/security/sanitize-output";
 import type { RefinePromptResponseBody } from "@/lib/types";
 
 export const runtime = "nodejs";
-
-const MAX_RAW_PROMPT_CHARS = 2000;
 
 // Hard latency budget for this endpoint: a short, capped rewrite, not a
 // teaching turn. No history, no lesson state, no thinking/reasoning budget —
@@ -109,21 +109,15 @@ export async function POST(request: Request) {
     );
   }
 
-  if (typeof rawBody !== "object" || rawBody === null) {
+  const parsedBody = refineRequestSchema.safeParse(rawBody);
+  if (!parsedBody.success) {
     return NextResponse.json<RefinePromptResponseBody>(
-      { ok: false, error: "Expected { rawPrompt: string }." },
-      { status: 400 },
-    );
-  }
-  const { rawPrompt } = rawBody as Record<string, unknown>;
-  if (typeof rawPrompt !== "string" || !rawPrompt.trim()) {
-    return NextResponse.json<RefinePromptResponseBody>(
-      { ok: false, error: "Expected { rawPrompt: string }." },
+      { ok: false, error: formatZodError(parsedBody.error) },
       { status: 400 },
     );
   }
 
-  const truncated = rawPrompt.trim().slice(0, MAX_RAW_PROMPT_CHARS);
+  const truncated = parsedBody.data.rawPrompt;
   // Groq first: it's the low-latency target for this endpoint. Gemini is
   // strictly the fallback for when Groq is unconfigured or errors.
   const preferGroq = isGroqConfigured();
@@ -132,14 +126,14 @@ export async function POST(request: Request) {
     const refinedPrompt = preferGroq
       ? await refineWithGroq(truncated)
       : await refineWithGemini(truncated);
-    return NextResponse.json<RefinePromptResponseBody>({ ok: true, refinedPrompt });
+    return NextResponse.json<RefinePromptResponseBody>({ ok: true, refinedPrompt: redactPii(refinedPrompt) });
   } catch (error) {
     // Groq was tried first because it's configured — give Gemini one shot
     // before giving up, if it's also available.
     if (preferGroq && isGeminiConfigured()) {
       try {
         const refinedPrompt = await refineWithGemini(truncated);
-        return NextResponse.json<RefinePromptResponseBody>({ ok: true, refinedPrompt });
+        return NextResponse.json<RefinePromptResponseBody>({ ok: true, refinedPrompt: redactPii(refinedPrompt) });
       } catch (fallbackError) {
         console.error(
           "Unexpected /api/refine error (both providers failed):",

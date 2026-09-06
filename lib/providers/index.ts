@@ -18,6 +18,8 @@ import {
 import { generateWithGemini, isGeminiConfigured } from "./gemini";
 import { generateWithGroq, isGroqConfigured } from "./groq";
 import { generateWithCohere, isCohereConfigured } from "./cohere";
+import { createCanaryToken } from "@/lib/security/canary";
+import { sanitizeLessonPayload } from "@/lib/security/sanitize-output";
 
 const PROVIDERS: Record<AiProvider, LessonProvider> = {
   gemini: generateWithGemini,
@@ -120,8 +122,12 @@ export interface GenerateLessonOptions {
   webcamFrame?: string;
   extendedThinking: boolean;
   lessonState?: LessonState;
-  /** Rebuilt per attempt because vision support differs between models. */
-  buildSystemInstruction: (model: TeacherModel) => string;
+  /**
+   * Rebuilt per attempt because vision support differs between models. The
+   * canary token is generated once per call (see below) and passed in here
+   * so every attempt's system instruction carries the same marker.
+   */
+  buildSystemInstruction: (model: TeacherModel, canaryToken: string) => string;
 }
 
 export interface GenerateLessonResult {
@@ -161,20 +167,28 @@ export async function generateLessonWithFailover(
   }
 
   const failures: ProviderError[] = [];
+  // One canary per student turn, reused across every attempt in the fallback
+  // chain — a leak is a property of the prompt/content for this turn, not of
+  // which model happened to be asked.
+  const canaryToken = createCanaryToken();
 
   for (const model of chain) {
     const request: ProviderRequest = {
       model,
-      systemInstruction: options.buildSystemInstruction(model),
+      systemInstruction: options.buildSystemInstruction(model, canaryToken),
       messages: options.messages,
       // Only Gemini can read the frame; sending it elsewhere is a 400.
       webcamFrame: model.supportsVision ? options.webcamFrame : undefined,
       extendedThinking: options.extendedThinking,
+      canaryToken,
     };
 
     try {
       const { text } = await withTimeout(PROVIDERS[model.provider](request), model.provider);
-      const payload = parseLessonPayload(text, options.lessonState);
+      const payload = sanitizeLessonPayload(
+        parseLessonPayload(text, options.lessonState),
+        request.systemInstruction,
+      );
       return {
         payload,
         servedBy: {

@@ -1,6 +1,7 @@
 import "server-only";
 import Groq from "groq-sdk";
 import { LESSON_JSON_SCHEMA } from "./lesson-schema";
+import { containsCanary } from "@/lib/security/canary";
 import { ProviderError, toProviderError, type LessonProvider } from "./shared";
 
 let client: Groq | null = null;
@@ -30,7 +31,7 @@ export const generateWithGroq: LessonProvider = async (request) => {
   const groq = getClient();
 
   try {
-    const completion = await groq.chat.completions.create({
+    const stream = await groq.chat.completions.create({
       model: request.model.modelName,
       messages: [
         { role: "system", content: request.systemInstruction },
@@ -55,14 +56,32 @@ export const generateWithGroq: LessonProvider = async (request) => {
           : { type: "json_object" },
       temperature: 0.6,
       max_completion_tokens: 4096,
+      stream: true,
     });
 
-    const text = completion.choices[0]?.message?.content;
+    // Streamed rather than awaited whole: the canary check below needs to see
+    // the text as it arrives so a leak is caught (and the connection dropped)
+    // mid-generation, not after the model has already finished writing it.
+    let text = "";
+    for await (const chunk of stream) {
+      text += chunk.choices[0]?.delta?.content ?? "";
+      if (containsCanary(text, request.canaryToken)) {
+        // `break` closes the SSE stream this iterates over — a real abort,
+        // not just a local stop-reading.
+        throw new ProviderError(
+          "canary_triggered",
+          "groq",
+          "Groq reflected the system-prompt canary token back in its output.",
+        );
+      }
+    }
+
     if (!text) {
       throw new ProviderError("bad_response", "groq", "Groq returned an empty message.");
     }
     return { text };
   } catch (error) {
+    if (error instanceof ProviderError) throw error;
     throw toProviderError("groq", error);
   }
 };

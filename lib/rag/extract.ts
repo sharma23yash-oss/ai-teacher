@@ -192,6 +192,62 @@ async function extractPdf(buffer: Uint8Array): Promise<ExtractedBlock[]> {
 
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Content sniffing — confirms the bytes match the claimed type
+// ---------------------------------------------------------------------------
+
+function startsWithSignature(buffer: Uint8Array, signature: readonly number[]): boolean {
+  if (buffer.length < signature.length) return false;
+  return signature.every((byte, i) => buffer[i] === byte);
+}
+
+/**
+ * Plain text has no magic number, so this checks the shape instead: mostly
+ * printable ASCII/whitespace or UTF-8 continuation bytes, and no embedded
+ * NUL. Rejects binary content that only happens to carry a .txt/.md name or
+ * a text/* MIME type, which a client fully controls and a server must not
+ * trust on its own.
+ */
+function looksLikeText(buffer: Uint8Array): boolean {
+  const sample = buffer.subarray(0, Math.min(buffer.length, 8192));
+  if (sample.length === 0) return true;
+  if (sample.includes(0)) return false;
+
+  let suspicious = 0;
+  for (const byte of sample) {
+    const isPrintableAscii = byte >= 0x20 && byte <= 0x7e;
+    const isCommonWhitespace = byte === 0x09 || byte === 0x0a || byte === 0x0d;
+    const isUtf8Continuation = byte >= 0x80;
+    if (!isPrintableAscii && !isCommonWhitespace && !isUtf8Continuation) suspicious++;
+  }
+  return suspicious / sample.length < 0.02;
+}
+
+/**
+ * Confirms the file's actual bytes match the type detectKind() derived from
+ * its name/MIME — both of which the uploading client fully controls. A
+ * renamed executable, a zip bomb wearing a ".pdf" extension, or any other
+ * MIME-spoofed upload is caught here before extraction ever runs on it.
+ */
+export function sniffKind(buffer: Uint8Array, claimedKind: SourceKind): boolean {
+  switch (claimedKind) {
+    case "pdf":
+      // "%PDF"
+      return startsWithSignature(buffer, [0x25, 0x50, 0x44, 0x46]);
+    case "docx":
+    case "pptx":
+      // Office Open XML files are ZIP archives: a normal local-file-header
+      // signature, or (rarely, for a technically-empty archive) the
+      // end-of-central-directory signature on its own.
+      return (
+        startsWithSignature(buffer, [0x50, 0x4b, 0x03, 0x04]) ||
+        startsWithSignature(buffer, [0x50, 0x4b, 0x05, 0x06])
+      );
+    case "text":
+      return looksLikeText(buffer);
+  }
+}
+
 export function detectKind(fileName: string, mimeType: string): SourceKind | null {
   const name = fileName.toLowerCase();
   if (name.endsWith(".pdf") || mimeType === "application/pdf") return "pdf";

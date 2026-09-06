@@ -1,12 +1,15 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import type { UploadResponseBody } from "@/lib/types";
-import { detectKind, extractDocument } from "@/lib/rag/extract";
+import { detectKind, extractDocument, sniffKind } from "@/lib/rag/extract";
 import { indexDocument } from "@/lib/rag/store";
+import { uploadFileNameSchema } from "@/lib/schemas";
 
 export const runtime = "nodejs";
 
-const MAX_FILE_BYTES = 20 * 1024 * 1024; // 20MB
+// 4.5MB — generous for text-based notes/slides, small enough that a
+// single upload can't be used to run up storage/CPU or embedding-API cost.
+const MAX_FILE_BYTES = 4.5 * 1024 * 1024;
 
 const UNSUPPORTED_MESSAGE =
   "Supported formats are PDF, Word (.docx), PowerPoint (.pptx), and plain text (.txt, .md). " +
@@ -32,17 +35,34 @@ export async function POST(request: Request) {
     return fail("That file is empty.", 400);
   }
   if (file.size > MAX_FILE_BYTES) {
-    return fail("File is too large (max 20MB).", 413);
+    return fail("File is too large (max 4.5MB).", 413);
   }
 
-  const kind = detectKind(file.name, file.type || "");
+  const fileName = uploadFileNameSchema.safeParse(file.name);
+  if (!fileName.success) {
+    return fail("That file name isn't valid.", 400);
+  }
+
+  const kind = detectKind(fileName.data, file.type || "");
   if (!kind) {
     return fail(UNSUPPORTED_MESSAGE, 415);
   }
 
+  const buffer = new Uint8Array(await file.arrayBuffer());
+
+  // The name and browser-supplied MIME type that detectKind() just used are
+  // both entirely client-controlled — a renamed or mislabeled file sails
+  // through them. This checks the bytes actually delivered against the type
+  // we're about to trust, independent of what the upload claimed to be.
+  if (!sniffKind(buffer, kind)) {
+    return fail(
+      "That file's contents don't match its type — it may be renamed or corrupted.",
+      415,
+    );
+  }
+
   let extracted;
   try {
-    const buffer = new Uint8Array(await file.arrayBuffer());
     extracted = await extractDocument(buffer, kind);
   } catch (error) {
     console.error("/api/upload extraction failed:", error);
@@ -69,15 +89,15 @@ export async function POST(request: Request) {
   // error — the first turn is grounded in the extracted text either way.
   try {
     const docId = randomUUID();
-    const indexed = await indexDocument(docId, file.name, extracted.blocks);
+    const indexed = await indexDocument(docId, fileName.data, extracted.blocks);
 
     return NextResponse.json<UploadResponseBody>({
       ok: true,
-      fileName: file.name,
+      fileName: fileName.data,
       text: extracted.text,
       knowledgeBase: {
         docId,
-        fileName: file.name,
+        fileName: fileName.data,
         charCount: indexed.charCount,
         chunkCount: indexed.chunks.length,
         retrieval: indexed.retrieval,

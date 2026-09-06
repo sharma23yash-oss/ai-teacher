@@ -1,6 +1,7 @@
 import "server-only";
 import { ApiError, GoogleGenAI, type Content } from "@google/genai";
 import { LESSON_RESPONSE_SCHEMA } from "@/lib/pedagogy-engine";
+import { containsCanary } from "@/lib/security/canary";
 import { ProviderError, toProviderError, type LessonProvider } from "./shared";
 
 let client: GoogleGenAI | null = null;
@@ -40,7 +41,7 @@ export const generateWithGemini: LessonProvider = async (request) => {
   }
 
   try {
-    const response = await ai.models.generateContent({
+    const stream = await ai.models.generateContentStream({
       model: request.model.modelName,
       contents,
       config: {
@@ -55,7 +56,24 @@ export const generateWithGemini: LessonProvider = async (request) => {
       },
     });
 
-    const text = response.text;
+    // Streamed rather than awaited whole: the canary check below needs to see
+    // the text as it arrives so a leak is caught (and the connection dropped)
+    // mid-generation, not after the model has already finished writing it.
+    let text = "";
+    for await (const chunk of stream) {
+      text += chunk.text ?? "";
+      if (containsCanary(text, request.canaryToken)) {
+        // `break` closes the async generator (calls its `.return()`), which
+        // ends the underlying HTTP stream — this is a real abort, not just a
+        // local stop-reading.
+        throw new ProviderError(
+          "canary_triggered",
+          "gemini",
+          "Gemini reflected the system-prompt canary token back in its output.",
+        );
+      }
+    }
+
     if (!text) {
       throw new ProviderError(
         "bad_response",
@@ -65,6 +83,7 @@ export const generateWithGemini: LessonProvider = async (request) => {
     }
     return { text };
   } catch (error) {
+    if (error instanceof ProviderError) throw error;
     if (error instanceof ApiError) {
       throw toProviderError("gemini", { status: error.status, message: error.message });
     }
