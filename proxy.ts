@@ -95,6 +95,7 @@ const ROUTE_LIMITS: ReadonlyArray<readonly [prefix: string, limit: number]> = [
   ["/api/teach", 20],
   ["/api/refine", 20],
   ["/api/upload", 10],
+  ["/api/metrics", 30],
 ];
 const DEFAULT_LIMIT = 60;
 const DEFAULT_BUCKET = "default";
