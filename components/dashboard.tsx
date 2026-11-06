@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, RotateCcw, X } from "lucide-react";
 import {
+  EXAM_PRESET_META,
   FEYNMAN_MASTERED_TOKEN,
   GESTURE_SIGNAL_META,
   type ChatMessage,
   type ConceptNode,
+  type ExamPreset,
   type GestureSignal,
   type Language,
   type LearnerLevel,
@@ -41,6 +43,7 @@ import { useGestureRecognition } from "@/lib/use-gesture-recognition";
 import type { AvatarState } from "./stage/avatar-face";
 import { StagePanel } from "./stage/stage-panel";
 import type { LessonSettingsControls } from "./stage/advanced-settings";
+import { Landing } from "./onboarding/landing";
 import { BrainPanel } from "./brain/brain-panel";
 
 // Thrown only for messages handleUpload has itself written (a network
@@ -134,9 +137,18 @@ interface TeachTurnInput {
    * toggle-on trigger fires in the same event as setIsFeynmanMode(true) and
    * can't rely on that state having re-rendered yet. */
   mode?: TeachMode;
+  /**
+   * Language for this turn when it differs from the `language` state — a
+   * sample lesson switches language and starts in the same click, before the
+   * new state has re-rendered into this closure.
+   */
+  languageOverride?: Language;
 }
 
 export function Dashboard() {
+  // False until the student starts their first lesson from the landing screen.
+  const [hasStarted, setHasStarted] = useState(false);
+  const [examPreset, setExamPreset] = useState<ExamPreset | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [lesson, setLesson] = useState<LessonPayload>(initialLessonPayload);
   const [isThinking, setIsThinking] = useState(false);
@@ -326,9 +338,9 @@ export function Dashboard() {
   }, [stopCamera]);
 
   const speak = useCallback(
-    (text: string) => {
+    (text: string, languageOverride?: Language) => {
       if (!text.trim()) return;
-      narrator.speak({ text, persona, language, voiceGender });
+      narrator.speak({ text, persona, language: languageOverride ?? language, voiceGender });
     },
     [narrator, persona, language, voiceGender],
   );
@@ -363,7 +375,9 @@ export function Dashboard() {
       gestureSignal,
       mode,
       lessonStateOverride,
+      languageOverride,
     }: TeachTurnInput) => {
+      const turnLanguage = languageOverride ?? language;
       const historyBeforeThisTurn = messages;
       const studentMessage: ChatMessage = {
         id: crypto.randomUUID(),
@@ -404,9 +418,10 @@ export function Dashboard() {
             modelId: model,
             extendedThinking,
             persona,
-            language,
+            language: turnLanguage,
             timeBudget,
             learnerLevel,
+            examPreset: examPreset ?? undefined,
             action,
             mode: effectiveMode,
             conceptPlan,
@@ -448,7 +463,7 @@ export function Dashboard() {
         };
         setMessages((prev) => [...prev, teacherMessage]);
         setLesson(payload);
-        speak(cleanedScript);
+        speak(cleanedScript, turnLanguage);
 
         // File what this turn established about the learner. The topic is
         // whatever they first asked for, so a lesson and its later quiz land
@@ -514,6 +529,7 @@ export function Dashboard() {
       learnerLevel,
       profile,
       currentTopic,
+      examPreset,
     ],
   );
 
@@ -593,6 +609,32 @@ export function Dashboard() {
       engineMessage: content,
       includeUpload: true,
     });
+  }
+
+  function handleStart(prompt: string, languageOverride?: Language) {
+    narrator.unlock();
+    if (languageOverride && languageOverride !== language) {
+      handleLanguageChange(languageOverride);
+    }
+    setHasStarted(true);
+    void runTeachTurn({ displayMessage: prompt, engineMessage: prompt, languageOverride });
+  }
+
+  /** Back to the landing screen with a clean lesson. Keeps settings and any uploaded file. */
+  function handleNewLesson() {
+    narrator.stop();
+    if (isVideoCallActive) {
+      stopCamera();
+      setIsVideoCallActive(false);
+    }
+    setMessages([]);
+    setLesson(initialLessonPayload);
+    setCurrentTopic(null);
+    setIsFeynmanMode(false);
+    setFeynmanConceptId(null);
+    setGroundedOn([]);
+    setGroundedLastTurn(false);
+    setHasStarted(false);
   }
 
   function handleTakeQuiz() {
@@ -806,14 +848,51 @@ export function Dashboard() {
 
   const canToggleFeynmanMode = lesson.concept_plan.some((concept) => concept.status === "current");
 
+  if (!hasStarted) {
+    return (
+      <Landing
+        settings={settings}
+        examPreset={examPreset}
+        onExamPresetChange={setExamPreset}
+        uploadedFileName={uploadedNote?.fileName ?? null}
+        isUploading={isUploading}
+        uploadError={uploadError}
+        onUpload={handleUpload}
+        onClearUpload={() => setUploadedNote(null)}
+        onStart={handleStart}
+      />
+    );
+  }
+
   return (
     <div className="flex h-dvh flex-col bg-slate-950">
-      <header className="flex items-center gap-2 border-b border-white/10 px-5 py-3">
-        <GraduationCap size={20} className="text-indigo-400" />
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-white/10 px-4 py-2.5 sm:px-5">
+        <GraduationCap size={20} className="text-indigo-400" aria-hidden="true" />
         <span className="text-sm font-semibold text-slate-100">AI Teacher</span>
-        <span className="text-xs text-slate-500">
+        <span className="hidden text-xs text-slate-400 lg:inline">
           Understand → Plan → Explain → Question → Evaluate → Adapt
         </span>
+        {examPreset && (
+          <span className="flex items-center gap-1 rounded-full border border-emerald-400/50 bg-emerald-500/15 py-0.5 pl-2.5 pr-1 text-xs font-medium text-emerald-200">
+            Exam prep: {EXAM_PRESET_META[examPreset].label}
+            <button
+              type="button"
+              onClick={() => setExamPreset(null)}
+              aria-label={`Turn off ${EXAM_PRESET_META[examPreset].label} exam prep`}
+              className="rounded-full p-0.5 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-emerald-300"
+            >
+              <X size={12} aria-hidden="true" />
+            </button>
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={handleNewLesson}
+          className="ml-auto flex items-center gap-1.5 rounded-md border border-white/15 px-2.5 py-1 text-xs font-medium text-slate-200 transition hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-indigo-400"
+        >
+          <RotateCcw size={13} aria-hidden="true" />
+          New lesson
+        </button>
       </header>
 
       <main className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-2">
