@@ -1,0 +1,120 @@
+{
+  "exam": "nism-xv",
+  "name": "NISM-Series-XV: Research Analyst Certification Examination",
+  "conductedBy": "National Institute of Securities Markets (NISM)",
+  "status": "placeholder",
+  "source": {
+    "document": null,
+    "version": null,
+    "url": null,
+    "verifiedOn": null
+  },
+  "format": {
+    "questions": null,
+    "durationMinutes": null,
+    "totalMarks": null,
+    "passPercent": null,
+    "negativeMarking": null
+  },
+  "chapters": [
+    {
+      "id": "ra-profession",
+      "title": "Introduction to the research analyst profession",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "Check this title against the current NISM-Series-XV workbook and fill in weightagePercent."
+    },
+    {
+      "id": "securities-markets",
+      "title": "Introduction to securities markets",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "Check this title against the current NISM-Series-XV workbook and fill in weightagePercent."
+    },
+    {
+      "id": "equity-debt-terminology",
+      "title": "Terminology in equity and debt markets",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "Check this title against the current NISM-Series-XV workbook and fill in weightagePercent."
+    },
+    {
+      "id": "fundamentals-of-research",
+      "title": "Fundamentals of research",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "Check this title against the current NISM-Series-XV workbook and fill in weightagePercent."
+    },
+    {
+      "id": "economic-analysis",
+      "title": "Economic analysis",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "Check this title against the current NISM-Series-XV workbook and fill in weightagePercent."
+    },
+    {
+      "id": "industry-analysis",
+      "title": "Industry analysis",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "Check this title against the current NISM-Series-XV workbook and fill in weightagePercent."
+    },
+    {
+      "id": "company-analysis-business",
+      "title": "Company analysis: business and governance",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "Check this title against the current NISM-Series-XV workbook and fill in weightagePercent."
+    },
+    {
+      "id": "company-analysis-financial",
+      "title": "Company analysis: financial analysis",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "Check this title against the current NISM-Series-XV workbook and fill in weightagePercent."
+    },
+    {
+      "id": "corporate-actions",
+      "title": "Corporate actions",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "Check this title against the current NISM-Series-XV workbook and fill in weightagePercent."
+    },
+    {
+      "id": "valuation",
+      "title": "Valuation principles",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "Check this title against the current NISM-Series-XV workbook and fill in weightagePercent."
+    },
+    {
+      "id": "risk-and-return",
+      "title": "Fundamentals of risk and return",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "Check this title against the current NISM-Series-XV workbook and fill in weightagePercent."
+    },
+    {
+      "id": "research-report",
+      "title": "Qualities of a good research report",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "Check this title against the current NISM-Series-XV workbook and fill in weightagePercent."
+    },
+    {
+      "id": "legal-regulatory",
+      "title": "Legal and regulatory environment",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "Check this title against the current NISM-Series-XV workbook and fill in weightagePercent."
+    }
+  ],
+  "todo": [
+    "Name the workbook edition you are using in source.document and source.version.",
+    "Fill format from the current NISM test details page: number of questions, duration, total marks, pass percentage, negative marking rule.",
+    "Fix the chapter list to match the workbook exactly (titles drafted from memory; chapters may have been added, merged or renamed).",
+    "Fill weightagePercent for every chapter from NISM's published weightage; they must add up to 100.",
+    "Add 4-8 topics per chapter (the headings inside each chapter).",
+    "Set status to verified and verifiedOn to the date you checked."
+  ]
+}

@@ -1,0 +1,104 @@
+{
+  "exam": "gate-cs",
+  "name": "GATE Computer Science and Information Technology (CS)",
+  "conductedBy": "IISc / IITs (organising institute changes each year)",
+  "status": "draft",
+  "source": {
+    "document": null,
+    "version": null,
+    "url": null,
+    "verifiedOn": null
+  },
+  "format": {
+    "questions": 65,
+    "durationMinutes": 180,
+    "totalMarks": 100,
+    "passPercent": null,
+    "negativeMarking": "MCQ only: -1/3 for 1-mark, -2/3 for 2-mark questions; none for MSQ and NAT"
+  },
+  "chapters": [
+    {
+      "id": "general-aptitude",
+      "title": "General Aptitude",
+      "weightagePercent": 15,
+      "topics": []
+    },
+    {
+      "id": "engineering-mathematics",
+      "title": "Engineering Mathematics",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "GATE does not publish per-subject weightage. Fill an average from the last 3-5 papers, or leave null."
+    },
+    {
+      "id": "digital-logic",
+      "title": "Digital Logic",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "GATE does not publish per-subject weightage. Fill an average from the last 3-5 papers, or leave null."
+    },
+    {
+      "id": "coa",
+      "title": "Computer Organization and Architecture",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "GATE does not publish per-subject weightage. Fill an average from the last 3-5 papers, or leave null."
+    },
+    {
+      "id": "programming-ds",
+      "title": "Programming and Data Structures",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "GATE does not publish per-subject weightage. Fill an average from the last 3-5 papers, or leave null."
+    },
+    {
+      "id": "algorithms",
+      "title": "Algorithms",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "GATE does not publish per-subject weightage. Fill an average from the last 3-5 papers, or leave null."
+    },
+    {
+      "id": "toc",
+      "title": "Theory of Computation",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "GATE does not publish per-subject weightage. Fill an average from the last 3-5 papers, or leave null."
+    },
+    {
+      "id": "compiler-design",
+      "title": "Compiler Design",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "GATE does not publish per-subject weightage. Fill an average from the last 3-5 papers, or leave null."
+    },
+    {
+      "id": "operating-system",
+      "title": "Operating System",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "GATE does not publish per-subject weightage. Fill an average from the last 3-5 papers, or leave null."
+    },
+    {
+      "id": "databases",
+      "title": "Databases",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "GATE does not publish per-subject weightage. Fill an average from the last 3-5 papers, or leave null."
+    },
+    {
+      "id": "computer-networks",
+      "title": "Computer Networks",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "GATE does not publish per-subject weightage. Fill an average from the last 3-5 papers, or leave null."
+    }
+  ],
+  "todo": [
+    "Check the format and the CS syllabus on the official GATE site for your exam year, then fill source and set status to verified.",
+    "General Aptitude is 15 marks in every paper; the other subjects share the remaining 85 marks.",
+    "If you add past-paper averages for the other subjects, they must add up to 85 so the total is 100.",
+    "Pass marks (qualifying cut-off) change every year; keep passPercent null.",
+    "Copy this file for other GATE papers (gate-ee.json, gate-me.json, ...) if you need them."
+  ]
+}

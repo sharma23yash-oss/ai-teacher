@@ -176,6 +176,17 @@ The learner profile (`lib/learner-profile.ts`) persists to `localStorage` — th
 
 > RETURNING STUDENT — This student has studied "Ohm's Law" before (2 sessions). They have previously struggled with: The Formula V = I x R. Check these before assuming them.
 
+### Learning engine (`lib/learning/`)
+
+| Piece | How it works |
+| --- | --- |
+| Mastery | Each concept has a score 0–100, a confidence (attempts / (attempts + 3)) and a last-practised time. Every answer pulls the score toward 100 × hint credit (correct) or 0 (wrong); quiz answers weigh more than Socratic ones. Unpractised scores decay with a half-life of 2–30 days (longer for well-practised concepts), never below 40% of the learned score. Evidence comes from concept status changes in each turn and from quiz results. |
+| Hint ladder | Nudge → hint → worked step → full solution. A correct answer after a hint earns 85%, 65%, 40% or 15% of full credit. |
+| Teach-back | "Explain it back": the student explains the current concept; the teacher names what is right, finds the biggest gap and asks one targeted follow-up. |
+| Spaced repetition | SM-2. Each answer is graded 0–5 (unaided correct = 5, each hint rung lowers it, wrong = 1). The landing page offers a 10-minute revision of the most overdue, weakest concepts (2 minutes each) and shows the daily streak. |
+| Misconception library | `data/misconceptions/<subject>.json`: wrong belief, why it is wrong, a diagnostic question and the fix. The teach route matches entries to the current concept and asks the teacher to check for them. |
+| Summary card | When a lesson completes: what was learned, weak spots, next step, streak, and a 1080×1350 PNG to download or share. |
+
 ## 9. Assessment methodology
 
 Assessment runs at two scales.
@@ -256,6 +267,8 @@ cp .env.example .env.local   # every variable is documented in this file
 #   COHERE_API_KEY=…   https://dashboard.cohere.com/api-keys
 
 npm run dev            # http://localhost:3000
+npm test               # unit tests (Vitest)
+npm run lint && npm run typecheck && npm run build
 ```
 
 Gemini is the one to set first: it is the only provider that reads webcam frames, and the only one that serves embeddings. With all three set, a lesson never stalls on a rate limit.
@@ -270,7 +283,7 @@ Optional settings:
 | `NEXT_PUBLIC_FEEDBACK_URL` | Where the footer's "Send feedback" link points (defaults to this repo's GitHub issues). |
 | `NEXT_PUBLIC_SITE_URL` | Canonical URL for SEO and social previews. On Vercel it defaults to the production domain. |
 
-**Try it in this order:** ask for a topic → answer the first question *wrong* on purpose → watch the phase flip to scaffolding → open the **Video** tab and generate → **Take Quiz** → check the **Progress** tab.
+**Try it in this order:** ask for a topic → press **Nudge me** once, then answer → answer the next question *wrong* on purpose → watch the skill tree percentages change → press **Explain it back** → **Take Quiz** → open **Summary** → come back the next day to see the 10-minute revision panel on the landing page.
 
 ## 15. Deployment
 
@@ -287,6 +300,7 @@ One caveat worth planning for: the retrieval index is process-local. On a single
 - **Caption timing is proportional, not forced-aligned.** Captions are distributed across the narration by character count. The last caption always ends exactly with the audio, but a mid-clip caption can drift by a fraction of a second.
 - **The presenter is a stylised drawn avatar**, not a photorealistic one.
 - **Only Gemini reads webcam frames.** On a Groq or Cohere turn the frame is dropped and the gesture is passed as text instead.
+- **Mastery, revision schedule and streak are per-browser** (`localStorage` key `ai-teacher.learning.v1`), like the learner profile. Phase 4 moves them to Upstash under an anonymous ID.
 - **The learner profile is per-browser.** No accounts, so it does not follow a student across devices.
 - **Concept plans are capped at 10.** A genuinely large syllabus would need nested plans.
 - **Quiz questions are multiple-choice only.** Free-text answers are evaluated conversationally in the lesson, but not in the formal quiz.

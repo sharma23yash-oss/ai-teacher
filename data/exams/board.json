@@ -1,0 +1,33 @@
+{
+  "exam": "board",
+  "name": "Board exam (choose board, class and subject)",
+  "conductedBy": "PLACEHOLDER: for example CBSE",
+  "status": "placeholder",
+  "source": {
+    "document": null,
+    "version": null,
+    "url": null,
+    "verifiedOn": null
+  },
+  "format": {
+    "questions": null,
+    "durationMinutes": null,
+    "totalMarks": null,
+    "passPercent": null,
+    "negativeMarking": null
+  },
+  "chapters": [
+    {
+      "id": "unit-1",
+      "title": "PLACEHOLDER unit",
+      "weightagePercent": null,
+      "topics": [],
+      "todo": "Replace with the real units from the board's syllabus and marks distribution."
+    }
+  ],
+  "todo": [
+    "Decide which board, class and subject to support first (for example CBSE Class 12 Physics), and rename this file to match (for example cbse-12-physics.json, exam id cbse-12-physics).",
+    "Copy the unit list and marks per unit from the board's current syllabus document; marks become weightagePercent.",
+    "Fill the format from the sample question paper."
+  ]
+}

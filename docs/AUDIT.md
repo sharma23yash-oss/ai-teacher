@@ -55,7 +55,7 @@ Pages: `/` (landing → lesson), `/metrics` (owner dashboard, `METRICS_TOKEN`), 
 | Socratic loop | Concept plan (3–10 concepts), statuses `completed / current / misconception / locked`, phases `introduction / explanation / assessment / scaffolding` (`lib/pedagogy-engine.ts`) | Phase 2 mastery and hint ladder should extend this |
 | Skill tree | `components/brain/skill-tree.tsx` shows concept status | Phase 2 #5 adds a mastery percentage to it |
 | Quiz + report card | Multiple-choice quiz, report card, weak concepts demoted and re-taught at once (`quiz-stage.tsx`, `dashboard.tsx` `handleQuizCompleted`) | Phase 2 #5 mastery updates come from here |
-| Feynman mode | AI plays a confused student and the human explains (`FEYNMAN_SYSTEM_PROMPT`) | Phase 2 #7 teach-back is close to this; extend it rather than add a second mode |
+| Feynman mode | AI plays a confused student and the human explains (`FEYNMAN_SYSTEM_PROMPT`) | Phase 2 #7 teach-back is a separate mode on purpose: in Feynman the AI is the student; in teach-back the AI stays the teacher and grades the student's explanation, so the normal concept-plan rules and mastery tracking still apply |
 | Learner profile | Per-topic scores, weak/completed concepts, briefing sent to the model | Phase 2 #5 and #8 should extend `lib/learner-profile.ts` |
 | RAG | Chunking by heading, embeddings + lexical hybrid retrieval, "grounded on" trace in the UI, retrieval on every turn | Phase 3 #11 — missing chapter summaries, Q&A generation, **page** citations |
 | Exam prep | NISM / CFA / GATE presets with format and marking rules in the prompt (`EXAM_PRESET_META` in `lib/types.ts`) | Phase 3 #12 — needs NISM Series XV specifically, board exams, and syllabus maps with weightage |
@@ -68,7 +68,7 @@ Pages: `/` (landing → lesson), `/metrics` (owner dashboard, `METRICS_TOKEN`), 
 
 ## 5. Known problems
 
-1. **No automated tests.** Nothing guards the teaching logic. Phase 2 must add tests for mastery, spaced repetition and the hint ladder (planned with `node --test`, no new dependency).
+1. ~~**No automated tests.**~~ Fixed in Phase 2: Vitest, `npm test` (mastery, hint ladder, spaced repetition, misconception matching, summary, exam content files).
 2. **No type-check script.** `npm run build` type-checks, but there is no fast standalone check. Added `npm run typecheck` in Phase 1.
 3. **Env vars were undocumented in git.** `.gitignore` ignores `.env*`, so `.env.local.example` was never committed. Phase 1 adds a tracked `.env.example`.
 4. **Metrics are not persistent in production yet.** Upstash variables are empty locally and may not be set on Vercel, so `/metrics` numbers reset on every cold start until they are.
@@ -87,4 +87,4 @@ Pages: `/` (landing → lesson), `/metrics` (owner dashboard, `METRICS_TOKEN`), 
 | **Server-side storage for students and classes** | Teacher dashboard (#20), 7/30-day returns (#14) and cross-device mastery all need per-student records on a server. | Use Upstash Redis (free tier, already a dependency) keyed by an anonymous session ID. Revisit for a real database only if the B2B pilot needs it. |
 | **Moderation provider** | #18 needs input/output moderation. | Use Gemini's built-in safety settings plus a small keyword/regex layer. No new paid service. |
 | **Exam content** | Syllabus maps and misconception libraries need accurate, licensed content. | Ship placeholder files with structure and mark every value that you must source. |
-| **Test runner** | Tests are required for Phase 2. | `node --test` (built into Node 26), no new dependency. |
+| **Test runner** | Tests are required for Phase 2. | Decided: Vitest (dev dependency only). |

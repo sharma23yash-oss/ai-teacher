@@ -12,18 +12,18 @@ Status key: ✅ done · 🟡 partly exists · ⬜ not started. See [AUDIT.md](AU
 | 3 | Hero, How it works, three sample lessons, footer (privacy, free tier, feedback) | ✅ | `landing.tsx`, `components/site-footer.tsx`, `/privacy` |
 | 4 | Title, description, Open Graph, Twitter, preview image, sitemap, robots | ✅ | `app/layout.tsx`, `app/opengraph-image.tsx`, `app/sitemap.ts`, `app/robots.ts` |
 
-## Phase 2 — Learning engine ⬜ (next)
+## Phase 2 — Learning engine ✅
 
-| # | Item | Status | Builds on |
+| # | Item | Status | Where |
 | --- | --- | --- | --- |
-| 5 | Mastery score, confidence, last practised, decay; shown in skill tree | 🟡 | Concept statuses + learner profile already track completed/weak |
-| 6 | Hint ladder (nudge → hint → worked step → solution), factored into mastery | ⬜ | Scaffolding phase in the prompt |
-| 7 | Teach-back with gap and misconception detection | 🟡 | Feynman mode — extend, don't duplicate |
-| 8 | Spaced repetition (SM-2 style), daily 10-minute revision, streak | ⬜ | Learner profile |
-| 9 | Misconception library (JSON per subject) → diagnostic questions | ⬜ | |
-| 10 | End-of-lesson summary card with shareable image | 🟡 | Quiz report card |
+| 5 | Mastery score (0–100), confidence, last practised, decay; shown in skill tree | ✅ | `lib/learning/mastery.ts`, `components/brain/skill-tree.tsx` |
+| 6 | Hint ladder (nudge → hint → worked step → solution), factored into mastery | ✅ | `lib/learning/hint-ladder.ts`, Hint button in chat |
+| 7 | Teach-back with gap and misconception detection | ✅ | `teachback` mode (`TEACHBACK_INSTRUCTION`), "Explain it back" button |
+| 8 | Spaced repetition (SM-2), daily 10-minute revision, streak | ✅ | `lib/learning/spaced-repetition.ts`, revision panel on the landing page |
+| 9 | Misconception library (JSON per subject) → diagnostic questions | ✅ | `data/misconceptions/`, `lib/learning/misconceptions.ts` |
+| 10 | End-of-lesson summary card with shareable image | ✅ | `components/summary/` |
 
-Tests for mastery, spaced repetition and the hint ladder with `node --test` (no new dependency).
+Mastery stays in the browser (decision for Phase 2); it moves to Upstash with an anonymous ID in Phase 4. Tests run with Vitest (`npm test`). Placeholder exam content and the list of what to fill in: `docs/CONTENT-TODO.md`.
 
 ## Phase 3 — Grounded content and exam niche ⬜
 

@@ -1,0 +1,76 @@
+{
+  "exam": "nism-xv",
+  "status": "placeholder",
+  "questions": [
+    {
+      "id": "nism-xv-placeholder-1",
+      "chapterId": "valuation",
+      "concept": "Price-to-earnings ratio",
+      "difficulty": "medium",
+      "type": "mcq",
+      "stem": "PLACEHOLDER question 1: replace with a real question on Price-to-earnings ratio.",
+      "options": [
+        "PLACEHOLDER option A",
+        "PLACEHOLDER option B",
+        "PLACEHOLDER option C",
+        "PLACEHOLDER option D"
+      ],
+      "answerIndex": 0,
+      "explanation": "PLACEHOLDER: explain why the answer is right and why each wrong option is wrong.",
+      "marks": 1,
+      "negativeMarks": 0,
+      "source": {
+        "document": null,
+        "page": null
+      },
+      "status": "placeholder"
+    },
+    {
+      "id": "nism-xv-placeholder-2",
+      "chapterId": "company-analysis-financial",
+      "concept": "Cash flow and profit",
+      "difficulty": "medium",
+      "type": "mcq",
+      "stem": "PLACEHOLDER question 2: replace with a real question on Cash flow and profit.",
+      "options": [
+        "PLACEHOLDER option A",
+        "PLACEHOLDER option B",
+        "PLACEHOLDER option C",
+        "PLACEHOLDER option D"
+      ],
+      "answerIndex": 0,
+      "explanation": "PLACEHOLDER: explain why the answer is right and why each wrong option is wrong.",
+      "marks": 1,
+      "negativeMarks": 0,
+      "source": {
+        "document": null,
+        "page": null
+      },
+      "status": "placeholder"
+    },
+    {
+      "id": "nism-xv-placeholder-3",
+      "chapterId": "corporate-actions",
+      "concept": "Bonus issues",
+      "difficulty": "medium",
+      "type": "mcq",
+      "stem": "PLACEHOLDER question 3: replace with a real question on Bonus issues.",
+      "options": [
+        "PLACEHOLDER option A",
+        "PLACEHOLDER option B",
+        "PLACEHOLDER option C",
+        "PLACEHOLDER option D"
+      ],
+      "answerIndex": 0,
+      "explanation": "PLACEHOLDER: explain why the answer is right and why each wrong option is wrong.",
+      "marks": 1,
+      "negativeMarks": 0,
+      "source": {
+        "document": null,
+        "page": null
+      },
+      "status": "placeholder",
+      "misconceptionId": "split-creates-value"
+    }
+  ]
+}

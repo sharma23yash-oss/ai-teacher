@@ -1,0 +1,137 @@
+{
+  "exam": "cfa-l1",
+  "name": "CFA Program Level I",
+  "conductedBy": "CFA Institute",
+  "status": "draft",
+  "source": {
+    "document": null,
+    "version": null,
+    "url": null,
+    "verifiedOn": null
+  },
+  "format": {
+    "questions": 180,
+    "durationMinutes": 270,
+    "totalMarks": null,
+    "passPercent": null,
+    "negativeMarking": "None"
+  },
+  "chapters": [
+    {
+      "id": "ethics",
+      "title": "Ethical and Professional Standards",
+      "weightagePercent": null,
+      "weightageRange": [
+        15,
+        20
+      ],
+      "topics": [],
+      "todo": "Verify the range against CFA Institute's topic weights for your exam year."
+    },
+    {
+      "id": "quant",
+      "title": "Quantitative Methods",
+      "weightagePercent": null,
+      "weightageRange": [
+        6,
+        9
+      ],
+      "topics": [],
+      "todo": "Verify the range against CFA Institute's topic weights for your exam year."
+    },
+    {
+      "id": "economics",
+      "title": "Economics",
+      "weightagePercent": null,
+      "weightageRange": [
+        6,
+        9
+      ],
+      "topics": [],
+      "todo": "Verify the range against CFA Institute's topic weights for your exam year."
+    },
+    {
+      "id": "fsa",
+      "title": "Financial Statement Analysis",
+      "weightagePercent": null,
+      "weightageRange": [
+        11,
+        14
+      ],
+      "topics": [],
+      "todo": "Verify the range against CFA Institute's topic weights for your exam year."
+    },
+    {
+      "id": "corporate-issuers",
+      "title": "Corporate Issuers",
+      "weightagePercent": null,
+      "weightageRange": [
+        6,
+        9
+      ],
+      "topics": [],
+      "todo": "Verify the range against CFA Institute's topic weights for your exam year."
+    },
+    {
+      "id": "equity",
+      "title": "Equity Investments",
+      "weightagePercent": null,
+      "weightageRange": [
+        11,
+        14
+      ],
+      "topics": [],
+      "todo": "Verify the range against CFA Institute's topic weights for your exam year."
+    },
+    {
+      "id": "fixed-income",
+      "title": "Fixed Income",
+      "weightagePercent": null,
+      "weightageRange": [
+        11,
+        14
+      ],
+      "topics": [],
+      "todo": "Verify the range against CFA Institute's topic weights for your exam year."
+    },
+    {
+      "id": "derivatives",
+      "title": "Derivatives",
+      "weightagePercent": null,
+      "weightageRange": [
+        5,
+        8
+      ],
+      "topics": [],
+      "todo": "Verify the range against CFA Institute's topic weights for your exam year."
+    },
+    {
+      "id": "alternatives",
+      "title": "Alternative Investments",
+      "weightagePercent": null,
+      "weightageRange": [
+        7,
+        10
+      ],
+      "topics": [],
+      "todo": "Verify the range against CFA Institute's topic weights for your exam year."
+    },
+    {
+      "id": "portfolio-management",
+      "title": "Portfolio Management",
+      "weightagePercent": null,
+      "weightageRange": [
+        8,
+        12
+      ],
+      "topics": [],
+      "todo": "Verify the range against CFA Institute's topic weights for your exam year."
+    }
+  ],
+  "todo": [
+    "Check the topic weight ranges and the exam format on CFA Institute's Level I exam page for your exam window, then fill source and set status to verified.",
+    "CFA publishes ranges, not exact weights; leave weightagePercent null unless you want a single planning figure.",
+    "CFA does not publish a pass mark; keep passPercent null.",
+    "Add the learning modules for each topic under topics."
+  ]
+}
