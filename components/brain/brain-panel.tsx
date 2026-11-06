@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { BrainCircuit, GraduationCap, MessagesSquare } from "lucide-react";
 import type {
   ChatMessage,
@@ -35,6 +35,7 @@ export function BrainPanel({
   uploadError,
   uploadedFileName,
   onClearUpload,
+  feedbackSlot,
 }: {
   concepts: ConceptNode[];
   /** Concept id to flash a mastery-ping on right now, or null for none. */
@@ -56,6 +57,8 @@ export function BrainPanel({
   uploadError: string | null;
   uploadedFileName: string | null;
   onClearUpload: () => void;
+  /** The post-lesson feedback card, when it should be shown. */
+  feedbackSlot?: ReactNode;
 }) {
   const [tab, setTab] = useState<Tab>("lesson");
   const topicCount = profile.topics.length;
@@ -111,6 +114,8 @@ export function BrainPanel({
           </div>
 
           <GroundingTrace chunks={groundedOn} documentName={documentName} />
+
+          {feedbackSlot}
 
           <div className="min-h-0 flex-1">
             <ChatInterface

@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { GraduationCap, RotateCcw, X } from "lucide-react";
+import { GraduationCap, MessageSquareHeart, RotateCcw, X } from "lucide-react";
 import {
   EXAM_PRESET_META,
   FEYNMAN_MASTERED_TOKEN,
   GESTURE_SIGNAL_META,
+  TEACHER_MODELS,
   type ChatMessage,
   type ConceptNode,
   type ExamPreset,
@@ -44,6 +45,9 @@ import type { AvatarState } from "./stage/avatar-face";
 import { StagePanel } from "./stage/stage-panel";
 import type { LessonSettingsControls } from "./stage/advanced-settings";
 import { Landing } from "./onboarding/landing";
+import { FeedbackCard } from "./brain/feedback-card";
+import { track } from "@/lib/metrics/client";
+import type { FeedbackRating } from "@/lib/metrics/feedback";
 import { BrainPanel } from "./brain/brain-panel";
 
 // Thrown only for messages handleUpload has itself written (a network
@@ -149,6 +153,17 @@ export function Dashboard() {
   // False until the student starts their first lesson from the landing screen.
   const [hasStarted, setHasStarted] = useState(false);
   const [examPreset, setExamPreset] = useState<ExamPreset | null>(null);
+  // Post-lesson "Did you understand this?" card: hidden until the lesson
+  // completes (or the student asks to rate), then open, then done.
+  const [feedbackState, setFeedbackState] = useState<"hidden" | "open" | "done">("hidden");
+
+  // Anonymous usage metrics (see lib/metrics). Refs, not state: none of this
+  // affects what is rendered.
+  const sessionStartedAtRef = useRef(0);
+  const lessonsThisSessionRef = useRef(0);
+  const lessonStartedAtRef = useRef<number | null>(null);
+  const lessonCompletedRef = useRef(false);
+  const sessionEndSentRef = useRef(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [lesson, setLesson] = useState<LessonPayload>(initialLessonPayload);
   const [isThinking, setIsThinking] = useState(false);
@@ -296,6 +311,45 @@ export function Dashboard() {
   );
 
   const narrator = useNarrator();
+
+  /** Records a lesson as completed once, and asks how it went. */
+  const markLessonCompleted = useCallback((via: "concepts" | "quiz") => {
+    if (lessonCompletedRef.current || lessonStartedAtRef.current === null) return;
+    lessonCompletedRef.current = true;
+    track({
+      type: "lesson_completed",
+      via,
+      durationSec: Math.round((Date.now() - lessonStartedAtRef.current) / 1000),
+    });
+    setFeedbackState((state) => (state === "hidden" ? "open" : state));
+  }, []);
+
+  // Session length: measured from page load to the first time the page is
+  // hidden or closed, and only for visits where a lesson was started.
+  useEffect(() => {
+    sessionStartedAtRef.current = Date.now();
+    function sendSessionEnd() {
+      if (sessionEndSentRef.current || lessonsThisSessionRef.current === 0) return;
+      sessionEndSentRef.current = true;
+      track({
+        type: "session_end",
+        durationSec: Math.min(
+          6 * 60 * 60,
+          Math.round((Date.now() - sessionStartedAtRef.current) / 1000),
+        ),
+        lessons: lessonsThisSessionRef.current,
+      });
+    }
+    function onVisibilityChange() {
+      if (document.visibilityState === "hidden") sendSessionEnd();
+    }
+    window.addEventListener("pagehide", sendSessionEnd);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("pagehide", sendSessionEnd);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, []);
 
   // One <video> element is shared between the full-stage call and the
   // picture-in-picture preview, and only one of them is mounted at a time. A
@@ -471,12 +525,34 @@ export function Dashboard() {
         if (payload.concept_plan.length > 0) {
           const isNewTopic = currentTopic === null;
           const topic = currentTopic ?? displayMessage.slice(0, 90);
-          if (isNewTopic) setCurrentTopic(topic);
+          if (isNewTopic) {
+            setCurrentTopic(topic);
+            lessonStartedAtRef.current = Date.now();
+            lessonCompletedRef.current = false;
+            lessonsThisSessionRef.current += 1;
+            track({
+              type: "lesson_started",
+              language: turnLanguage,
+              level: learnerLevel,
+              timeBudget,
+              persona,
+              tier: TEACHER_MODELS[model].tier,
+              examPreset,
+              hasDocument: uploadedNote !== null,
+            });
+          }
           setProfile((previous) => {
             const next = recordLessonProgress(previous, topic, payload.concept_plan, isNewTopic);
             saveProfile(next);
             return next;
           });
+        }
+
+        if (
+          payload.concept_plan.length > 0 &&
+          payload.concept_plan.every((concept) => concept.status === "completed")
+        ) {
+          markLessonCompleted("concepts");
         }
 
         if (mastered && feynmanConceptId) {
@@ -530,6 +606,7 @@ export function Dashboard() {
       profile,
       currentTopic,
       examPreset,
+      markLessonCompleted,
     ],
   );
 
@@ -635,6 +712,13 @@ export function Dashboard() {
     setGroundedOn([]);
     setGroundedLastTurn(false);
     setHasStarted(false);
+    setFeedbackState("hidden");
+    lessonStartedAtRef.current = null;
+    lessonCompletedRef.current = false;
+  }
+
+  function handleFeedbackSubmit(rating: FeedbackRating, comment: string) {
+    track({ type: "feedback", rating, comment: comment || undefined });
   }
 
   function handleTakeQuiz() {
@@ -687,6 +771,8 @@ export function Dashboard() {
    * for.
    */
   function handleQuizCompleted(report: QuizReport) {
+    track({ type: "quiz_completed", scorePercent: Math.round(report.scorePercent) });
+    markLessonCompleted("quiz");
     const summary = buildQuizSummarySpeech(report);
     setMessages((prev) => [
       ...prev,
@@ -885,14 +971,26 @@ export function Dashboard() {
             </button>
           </span>
         )}
+        <div className="ml-auto flex items-center gap-2">
+        {feedbackState === "hidden" && currentTopic && (
+          <button
+            type="button"
+            onClick={() => setFeedbackState("open")}
+            className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline-2 focus-visible:outline-indigo-400"
+          >
+            <MessageSquareHeart size={13} aria-hidden="true" />
+            Rate lesson
+          </button>
+        )}
         <button
           type="button"
           onClick={handleNewLesson}
-          className="ml-auto flex items-center gap-1.5 rounded-md border border-white/15 px-2.5 py-1 text-xs font-medium text-slate-200 transition hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-indigo-400"
+          className="flex items-center gap-1.5 rounded-md border border-white/15 px-2.5 py-1 text-xs font-medium text-slate-200 transition hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-indigo-400"
         >
           <RotateCcw size={13} aria-hidden="true" />
           New lesson
         </button>
+        </div>
       </header>
 
       <main className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-2">
@@ -949,6 +1047,14 @@ export function Dashboard() {
             uploadError={uploadError}
             uploadedFileName={uploadedNote?.fileName ?? null}
             onClearUpload={() => setUploadedNote(null)}
+            feedbackSlot={
+              feedbackState === "open" ? (
+                <FeedbackCard
+                  onSubmit={handleFeedbackSubmit}
+                  onDismiss={() => setFeedbackState("done")}
+                />
+              ) : null
+            }
           />
         </div>
       </main>

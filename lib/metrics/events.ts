@@ -7,6 +7,7 @@ import {
   TEACHER_PERSONAS,
   TIME_BUDGETS,
 } from "@/lib/types";
+import { FEEDBACK_COMMENT_MAX_CHARS, FEEDBACK_RATINGS } from "./feedback";
 
 /**
  * The only events the app records. Every field is a category or a number:
@@ -18,12 +19,8 @@ import {
  */
 
 const MAX_DURATION_SECONDS = 6 * 60 * 60;
-export const FEEDBACK_COMMENT_MAX_CHARS = 500;
 
 const duration = z.number().int().min(0).max(MAX_DURATION_SECONDS);
-
-export const FEEDBACK_RATINGS = ["yes", "partly", "no"] as const;
-export type FeedbackRating = (typeof FEEDBACK_RATINGS)[number];
 
 export const metricsEventSchema = z.discriminatedUnion("type", [
   z.object({
