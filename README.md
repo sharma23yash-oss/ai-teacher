@@ -45,7 +45,11 @@ It did not supply the answer, and it did not repeat itself — it identified the
 | **Reverse Socratic (Feynman) mode** | The AI plays a student holding a plausible misconception and the human teaches *it*, which is a far harder test of understanding than answering a quiz. |
 | **Assessment that changes the lesson** | Quiz results write back into lesson state: missed concepts are demoted and immediately re-taught. |
 | **Persistent learner profile** | Topics, scores, strong and weak concepts and history persist across sessions and are fed back into the prompt. |
-| **Multi-provider failover** | Nine models across three providers behind one interface; a failed turn silently resumes on another provider with the lesson intact. |
+| **Multi-provider failover** | Nine models across three providers behind one interface, shown to students as **Fast / Balanced / Deep** (providers in the tooltip); a failed turn silently resumes on another provider with the lesson intact. |
+| **One-box onboarding** | The first screen is a single prompt with sensible defaults (Balanced, Standard Educator, 20-minute lesson, English or Hinglish). Every other setting lives in an **Advanced** drawer. Three sample lessons start in one click. |
+| **Exam prep mode** | NISM, CFA and GATE presets treat your uploaded PDF as the syllabus and quiz in the real exam's format and marking rules. |
+| **Post-lesson feedback** | "Did you understand this?" (Yes / Partly / Not really) with an optional comment, shown when a lesson completes. |
+| **Usage metrics** | Anonymous, aggregate counts (lessons started and completed, quiz scores, languages, session length, feedback) on a private `/metrics` page. No IDs, IPs, cookies or lesson content. |
 
 ## 4. System architecture
 
@@ -254,13 +258,21 @@ npm run dev            # http://localhost:3000
 
 Gemini is the one to set first: it is the only provider that reads webcam frames, and the only one that serves embeddings. With all three set, a lesson never stalls on a rate limit.
 
-Optional: `NEXT_PUBLIC_SHOWCASE_MODE=1` enables the creator-story content and sponsor placement (off by default — see `lib/build-flags.ts`).
+Optional settings:
+
+| Variable | What it does |
+| --- | --- |
+| `NEXT_PUBLIC_SHOWCASE_MODE=1` | Enables the creator-story content and sponsor placement (off by default, see `lib/build-flags.ts`). |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Persistent rate limiting **and** persistent usage metrics. Without them both fall back to memory, which resets on every cold start. |
+| `METRICS_TOKEN` | Protects `/metrics`. Open it as `/metrics?key=<token>`. Without it, `/metrics` is open on localhost and closed in production. |
+| `NEXT_PUBLIC_FEEDBACK_URL` | Where the footer's "Send feedback" link points (defaults to this repo's GitHub issues). |
+| `NEXT_PUBLIC_SITE_URL` | Canonical URL for SEO and social previews. On Vercel it defaults to the production domain. |
 
 **Try it in this order:** ask for a topic → answer the first question *wrong* on purpose → watch the phase flip to scaffolding → open the **Video** tab and generate → **Take Quiz** → check the **Progress** tab.
 
 ## 15. Deployment
 
-Deploys to Vercel as a standard Next.js app. Set `GEMINI_API_KEY`, `GROQ_API_KEY` and `COHERE_API_KEY` as environment variables; no other configuration is needed. `/api/upload`, `/api/teach` and `/api/tts` all run on the Node.js runtime (`pdf-parse` and `msedge-tts` need Node APIs, not Edge).
+Deploys to Vercel as a standard Next.js app. Set `GEMINI_API_KEY`, `GROQ_API_KEY` and `COHERE_API_KEY` as environment variables. To keep usage numbers across deploys and cold starts, also set the two Upstash variables and `METRICS_TOKEN` (see the table above). `/api/upload`, `/api/teach` and `/api/tts` all run on the Node.js runtime (`pdf-parse` and `msedge-tts` need Node APIs, not Edge).
 
 One caveat worth planning for: the retrieval index is process-local. On a single instance that is correct and free; on a horizontally scaled deployment an uploaded document would only be found by the instance that indexed it. Moving `lib/rag/store.ts` behind Redis or a hosted vector database is a contained change — the interface (`indexDocument`, `retrieve`, `leadingContext`) is already the seam.
 
