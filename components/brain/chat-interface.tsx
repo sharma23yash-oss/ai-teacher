@@ -269,7 +269,12 @@ export function ChatInterface({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+      <div
+        role="log"
+        aria-label="Lesson conversation"
+        aria-live="polite"
+        className="flex-1 space-y-3 overflow-y-auto px-4 py-4"
+      >
         {messages.length === 0 && !isThinking && (
           <div className="flex h-full flex-col items-center justify-center gap-4 px-4 text-center">
             {dailyQuote && (
@@ -327,11 +332,16 @@ export function ChatInterface({
         ))}
         {isThinking && (
           <div className="flex justify-start">
-            <div className="flex items-center gap-1 rounded-2xl rounded-bl-sm bg-slate-100 px-4 py-3">
+            <div
+              role="status"
+              className="flex items-center gap-1 rounded-2xl rounded-bl-sm bg-slate-100 px-4 py-3"
+            >
+              <span className="sr-only">The teacher is thinking…</span>
               {[0, 1, 2].map((i) => (
                 <span
                   key={i}
-                  className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400"
+                  aria-hidden="true"
+                  className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-500"
                   style={{ animationDelay: `${i * 0.12}s` }}
                 />
               ))}
@@ -364,9 +374,9 @@ export function ChatInterface({
           </div>
         )}
         {micError && !isListening && (
-          <p className="mb-2 px-1 text-xs text-red-500">{micError}</p>
+          <p role="alert" className="mb-2 px-1 text-xs text-red-600">{micError}</p>
         )}
-        {refineError && <p className="mb-2 px-1 text-xs text-red-500">{refineError}</p>}
+        {refineError && <p role="alert" className="mb-2 px-1 text-xs text-red-600">{refineError}</p>}
 
         {canRefine && (
           <div className="mb-2 flex justify-end">
@@ -414,7 +424,7 @@ export function ChatInterface({
             </div>
           </div>
         )}
-        {uploadError && <p className="mb-2 px-1 text-xs text-red-500">{uploadError}</p>}
+        {uploadError && <p role="alert" className="mb-2 px-1 text-xs text-red-600">{uploadError}</p>}
 
         <form onSubmit={handleSubmit} className="flex items-center gap-2">
           <input
@@ -422,12 +432,15 @@ export function ChatInterface({
             type="file"
             accept={DOCUMENT_UPLOAD_ACCEPT}
             className="hidden"
+            tabIndex={-1}
+            aria-hidden="true"
             onChange={handleDocumentSelected}
           />
           <button
             type="button"
             onClick={() => uploadInputRef.current?.click()}
             disabled={isUploading}
+            aria-label="Upload a document to teach from"
             title="Upload a document (PDF, TXT, or MD) to teach from"
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-all hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -435,6 +448,7 @@ export function ChatInterface({
           </button>
           <input
             value={draft}
+            aria-label="Your answer or question"
             onChange={(e) => setDraft(e.target.value)}
             placeholder={
               isThinking
@@ -451,6 +465,7 @@ export function ChatInterface({
             onClick={handleMicToggle}
             disabled={!isMicSupported}
             aria-pressed={micIsActive}
+            aria-label={micIsActive ? "Stop voice input" : "Start voice input"}
             title={
               !isMicSupported
                 ? "Voice input isn't supported in this browser"

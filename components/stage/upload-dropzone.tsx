@@ -56,7 +56,7 @@ export function UploadDropzone({
       />
 
       {isUploading ? (
-        <span className="flex items-center gap-1.5 text-slate-400">
+        <span role="status" className="flex items-center gap-1.5 text-slate-300">
           <Loader2 size={13} className="animate-spin" />
           Reading file…
         </span>
@@ -65,15 +65,17 @@ export function UploadDropzone({
           <FileText size={13} />
           <span className="max-w-[10rem] truncate">{uploadedFileName}</span>
           <button
+            type="button"
             onClick={onClearUpload}
             aria-label="Remove uploaded file"
-            className="text-slate-500 transition hover:text-slate-300"
+            className="text-slate-400 transition hover:text-slate-300"
           >
             <X size={13} />
           </button>
         </span>
       ) : (
         <button
+          type="button"
           onClick={() => inputRef.current?.click()}
           className="flex items-center gap-1.5 text-slate-400 transition hover:text-slate-200"
         >
@@ -83,7 +85,7 @@ export function UploadDropzone({
       )}
 
       {uploadError && (
-        <span className="truncate text-red-400" title={uploadError}>
+        <span role="alert" className="truncate text-red-300" title={uploadError}>
           {uploadError}
         </span>
       )}

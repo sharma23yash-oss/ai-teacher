@@ -12,7 +12,7 @@ export function PersonaSelector({
 }) {
   return (
     <div className="flex items-center gap-1.5 text-xs">
-      <Drama size={14} className="text-slate-400" />
+      <Drama size={14} className="text-slate-400" aria-hidden="true" />
       <select
         value={persona}
         onChange={(e) => onPersonaChange(e.target.value as TeacherPersona)}

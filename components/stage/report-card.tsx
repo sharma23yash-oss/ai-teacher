@@ -34,7 +34,7 @@ export function ReportCard({ report }: { report: QuizReport }) {
                 </span>
               ))
             ) : (
-              <span className="text-xs text-slate-500">None yet — keep practicing!</span>
+              <span className="text-xs text-slate-400">None yet — keep practicing!</span>
             )}
           </div>
         </div>
@@ -54,7 +54,7 @@ export function ReportCard({ report }: { report: QuizReport }) {
                 </span>
               ))
             ) : (
-              <span className="text-xs text-slate-500">No weak areas — nice work!</span>
+              <span className="text-xs text-slate-400">No weak areas — nice work!</span>
             )}
           </div>
         </div>

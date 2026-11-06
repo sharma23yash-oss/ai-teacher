@@ -98,7 +98,7 @@ const STATUS_STYLES: Record<DiagramNodeStatus | "default", string> = {
 export function DiagramStage({ data }: { data: DiagramData }) {
   if (data.nodes.length === 0) {
     return (
-      <div className="flex h-full w-full items-center justify-center text-sm text-slate-500">
+      <div className="flex h-full w-full items-center justify-center text-sm text-slate-400">
         No diagram data for this step.
       </div>
     );

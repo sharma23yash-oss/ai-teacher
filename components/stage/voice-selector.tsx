@@ -23,7 +23,7 @@ export function VoiceSelector({
 
   return (
     <div className="flex items-center gap-1.5 text-xs">
-      <AudioLines size={14} className="text-slate-400" />
+      <AudioLines size={14} className="text-slate-400" aria-hidden="true" />
       <select
         value={isLocked ? "male" : voiceGender}
         onChange={(e) => onVoiceGenderChange(e.target.value as VoiceGender)}

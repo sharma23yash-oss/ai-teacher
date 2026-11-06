@@ -106,7 +106,7 @@ export function VideoCallStage({
         <p className="text-sm text-slate-400">
           Start a video call to teach face to face.
         </p>
-        <p className="max-w-md text-xs leading-relaxed text-slate-500">
+        <p className="max-w-md text-xs leading-relaxed text-slate-400">
           Once the camera is on, a thumbs up moves the lesson forward, a thumbs down makes
           the teacher re-explain in simpler terms, a head shake pauses for questions, and a
           nod advances to the next idea.
@@ -193,7 +193,7 @@ export function VideoCallStage({
           );
         })}
         {headPose && engineStatus === "ready" && (
-          <span className="rounded-full bg-black/50 px-3 py-1.5 font-mono text-[10px] text-slate-500">
+          <span className="rounded-full bg-black/50 px-3 py-1.5 font-mono text-[10px] text-slate-400">
             yaw {headPose.yaw.toFixed(0)}° · pitch {headPose.pitch.toFixed(0)}°
           </span>
         )}

@@ -12,7 +12,7 @@ export function TimeBudgetSelector({
 }) {
   return (
     <div className="flex items-center gap-1.5 text-xs">
-      <Timer size={14} className="text-slate-400" />
+      <Timer size={14} className="text-slate-400" aria-hidden="true" />
       <select
         value={timeBudget}
         onChange={(e) => onTimeBudgetChange(e.target.value as TimeBudget)}

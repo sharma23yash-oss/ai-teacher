@@ -18,7 +18,7 @@ export function LevelSelector({
 }) {
   return (
     <div className="flex items-center gap-1.5 text-xs">
-      <GraduationCap size={14} className="text-slate-400" />
+      <GraduationCap size={14} className="text-slate-400" aria-hidden="true" />
       <select
         value={learnerLevel}
         onChange={(e) => onLearnerLevelChange(e.target.value as LearnerLevel)}

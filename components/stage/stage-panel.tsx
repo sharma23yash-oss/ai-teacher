@@ -142,7 +142,7 @@ export function StagePanel({
 
   return (
     <section className="flex h-full flex-col bg-slate-950">
-      <header className="flex items-center justify-between gap-3 border-b border-white/10 px-5 py-3">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3 sm:px-5">
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-wider text-indigo-400">
             The Stage
@@ -191,10 +191,14 @@ export function StagePanel({
             )}
             {isFeynmanMode ? "🧪 Feynman Mode: ON" : "🧪 Teach Me (Feynman)"}
           </button>
-          <div className="flex gap-1 rounded-lg bg-white/5 p-1">
+          <div role="group" aria-label="Stage view" className="flex gap-1 rounded-lg bg-white/5 p-1">
             {MODE_TABS.map(({ mode: tabMode, label, icon: Icon }) => (
               <button
                 key={tabMode}
+                type="button"
+                aria-label={label}
+                aria-pressed={mode === tabMode}
+                title={label}
                 onClick={() => setMode(tabMode)}
                 className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
                   mode === tabMode
@@ -202,15 +206,15 @@ export function StagePanel({
                     : "text-slate-400 hover:text-slate-200"
                 }`}
               >
-                <Icon size={14} />
-                <span className="hidden lg:inline">{label}</span>
+                <Icon size={14} aria-hidden="true" />
+                <span className="hidden lg:inline" aria-hidden="true">{label}</span>
               </button>
             ))}
           </div>
         </div>
       </header>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-5 py-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-4 py-2.5 sm:px-5">
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={onTakeQuiz}
@@ -236,7 +240,7 @@ export function StagePanel({
             {isVideoCallActive ? "End Video Call" : "Start Video Call"}
           </button>
           {videoCallError && (
-            <span className="max-w-[16rem] truncate text-xs text-red-400" title={videoCallError}>
+            <span role="alert" className="max-w-[16rem] truncate text-xs text-red-300" title={videoCallError}>
               {videoCallError}
             </span>
           )}
@@ -369,7 +373,7 @@ export function StagePanel({
       </div>
 
       <footer className="border-t border-white/10 px-5 py-3">
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-slate-400">
           Visual director →{" "}
           <span className="font-mono text-indigo-300">{lesson.visual_director.mode}</span>
         </p>
@@ -381,7 +385,7 @@ export function StagePanel({
 
 function EmptyStageState({ message }: { message: string }) {
   return (
-    <div className="flex h-full w-full items-center justify-center text-sm text-slate-500">
+    <div className="flex h-full w-full items-center justify-center text-sm text-slate-400">
       {message}
     </div>
   );

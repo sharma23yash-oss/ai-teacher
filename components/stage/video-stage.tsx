@@ -327,7 +327,7 @@ export function VideoStage({
               </div>
             )}
             {phase === "recording" && (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-400">
                 Recording runs in real time — about {Math.ceil(board?.duration ?? 0)} seconds.
               </p>
             )}
@@ -386,7 +386,7 @@ export function VideoStage({
         )}
       </div>
 
-      <p className="text-center text-xs text-slate-500">
+      <p className="text-center text-xs text-slate-400">
         {error ? (
           <span className="text-red-400">{error}</span>
         ) : board ? (

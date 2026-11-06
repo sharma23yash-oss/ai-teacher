@@ -73,6 +73,8 @@ export function BrainPanel({
 
         <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
           <button
+            type="button"
+            aria-pressed={tab === "lesson"}
             onClick={() => setTab("lesson")}
             className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition ${
               tab === "lesson"
@@ -84,6 +86,8 @@ export function BrainPanel({
             Lesson
           </button>
           <button
+            type="button"
+            aria-pressed={tab === "progress"}
             onClick={() => setTab("progress")}
             title="Everything saved about your learning on this device"
             className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition ${

@@ -142,7 +142,7 @@ export function QuizStage({
                     } else if (isSelected) {
                       style = "border-red-500/60 bg-red-500/10 text-red-300";
                     } else {
-                      style = "border-white/10 bg-white/5 text-slate-500";
+                      style = "border-white/10 bg-white/5 text-slate-400";
                     }
                   }
 

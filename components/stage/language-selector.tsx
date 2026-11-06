@@ -20,7 +20,7 @@ export function LanguageSelector({
 }) {
   return (
     <div className="flex items-center gap-1.5 text-xs">
-      <Languages size={14} className="text-slate-400" />
+      <Languages size={14} className="text-slate-400" aria-hidden="true" />
       <select
         value={language}
         onChange={(e) => onLanguageChange(e.target.value as Language)}
