@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { GraduationCap, MessageSquareHeart, RotateCcw, X } from "lucide-react";
+import { AlertTriangle, GraduationCap, MessageSquareHeart, RotateCcw, X } from "lucide-react";
 import {
   EXAM_PRESET_META,
   FEYNMAN_MASTERED_TOKEN,
@@ -120,6 +120,24 @@ function promoteConceptToCompleted(conceptPlan: ConceptNode[], conceptId: string
   });
 }
 
+/** A turn that failed, kept so the student can retry it with one click. */
+interface FailedTurn {
+  message: string;
+  retry: TeachTurnInput;
+}
+
+/** Thrown for failures whose message is safe and useful to show a student. */
+class TeachTurnError extends Error {}
+
+function describeTeachFailure(status: number, serverError: string | undefined): string {
+  if (status === 403) {
+    return "This page's session looks stale. Refresh the page and try again.";
+  }
+  if (serverError) return serverError;
+  if (status === 429) return "Too many requests right now. Wait a moment and try again.";
+  return "The teacher couldn't answer just now. Please try again.";
+}
+
 interface TeachTurnInput {
   /** What the student sees as their own turn in the chat transcript. */
   displayMessage: string;
@@ -165,6 +183,7 @@ export function Dashboard() {
   const lessonCompletedRef = useRef(false);
   const sessionEndSentRef = useRef(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [failedTurn, setFailedTurn] = useState<FailedTurn | null>(null);
   const [lesson, setLesson] = useState<LessonPayload>(initialLessonPayload);
   const [isThinking, setIsThinking] = useState(false);
   const [isTakingQuiz, setIsTakingQuiz] = useState(false);
@@ -421,7 +440,8 @@ export function Dashboard() {
   }, [isVideoCallActive]);
 
   const runTeachTurn = useCallback(
-    async ({
+    async (turnInput: TeachTurnInput) => {
+      const {
       displayMessage,
       engineMessage,
       action,
@@ -430,8 +450,9 @@ export function Dashboard() {
       mode,
       lessonStateOverride,
       languageOverride,
-    }: TeachTurnInput) => {
+      } = turnInput;
       const turnLanguage = languageOverride ?? language;
+      setFailedTurn(null);
       const historyBeforeThisTurn = messages;
       const studentMessage: ChatMessage = {
         id: crypto.randomUUID(),
@@ -456,7 +477,9 @@ export function Dashboard() {
       };
 
       try {
-        const res = await fetch("/api/teach", {
+        let res: Response;
+        try {
+          res = await fetch("/api/teach", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -484,8 +507,21 @@ export function Dashboard() {
             lessonState,
           }),
         });
-        const data = (await res.json()) as TeachResponseBody;
-        if (!data.ok) throw new Error(data.error);
+        } catch {
+          throw new TeachTurnError("Couldn't reach the server. Check your connection and try again.");
+        }
+
+        // The proxy's 403/429 responses are JSON without an `ok` field, and a
+        // crashed function may not return JSON at all, so read defensively.
+        let data: Partial<TeachResponseBody> & { error?: string };
+        try {
+          data = (await res.json()) as typeof data;
+        } catch {
+          data = {};
+        }
+        if (!res.ok || data.ok !== true || !("payload" in data) || !data.payload) {
+          throw new TeachTurnError(describeTeachFailure(res.status, data.error));
+        }
 
         const grounded = data.groundedOn ?? [];
         setGroundedOn(grounded);
@@ -574,15 +610,17 @@ export function Dashboard() {
         }
 
       } catch (error) {
-        const errorMessage: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: "teacher",
-          content:
-            error instanceof Error
-              ? `Sorry, I hit an error: ${error.message}`
-              : "Sorry, something went wrong reaching the teaching engine.",
-        };
-        setMessages((prev) => [...prev, errorMessage]);
+        if (!(error instanceof TeachTurnError)) console.error("Teach turn failed:", error);
+        // Take the unanswered message back out of the transcript; the retry
+        // button re-sends it, so it would otherwise appear twice.
+        setMessages((prev) => prev.filter((message) => message.id !== studentMessage.id));
+        setFailedTurn({
+          message:
+            error instanceof TeachTurnError
+              ? error.message
+              : "Something went wrong reaching the teacher. Please try again.",
+          retry: turnInput,
+        });
       } finally {
         if (isQuizTurn) setIsTakingQuiz(false);
         else setIsThinking(false);
@@ -705,6 +743,7 @@ export function Dashboard() {
       setIsVideoCallActive(false);
     }
     setMessages([]);
+    setFailedTurn(null);
     setLesson(initialLessonPayload);
     setCurrentTopic(null);
     setIsFeynmanMode(false);
@@ -1047,13 +1086,35 @@ export function Dashboard() {
             uploadError={uploadError}
             uploadedFileName={uploadedNote?.fileName ?? null}
             onClearUpload={() => setUploadedNote(null)}
-            feedbackSlot={
-              feedbackState === "open" ? (
-                <FeedbackCard
-                  onSubmit={handleFeedbackSubmit}
-                  onDismiss={() => setFeedbackState("done")}
-                />
-              ) : null
+            notices={
+              <>
+                {failedTurn && (
+                  <div
+                    role="alert"
+                    className="mx-4 my-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+                  >
+                    <AlertTriangle size={16} className="shrink-0" aria-hidden="true" />
+                    <span className="min-w-0 flex-1">{failedTurn.message}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        narrator.unlock();
+                        void runTeachTurn(failedTurn.retry);
+                      }}
+                      disabled={isThinking || isTakingQuiz}
+                      className="rounded-lg bg-red-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-600 disabled:opacity-50"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                )}
+                {feedbackState === "open" && (
+                  <FeedbackCard
+                    onSubmit={handleFeedbackSubmit}
+                    onDismiss={() => setFeedbackState("done")}
+                  />
+                )}
+              </>
             }
           />
         </div>

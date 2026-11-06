@@ -35,7 +35,7 @@ export function BrainPanel({
   uploadError,
   uploadedFileName,
   onClearUpload,
-  feedbackSlot,
+  notices,
 }: {
   concepts: ConceptNode[];
   /** Concept id to flash a mastery-ping on right now, or null for none. */
@@ -57,8 +57,8 @@ export function BrainPanel({
   uploadError: string | null;
   uploadedFileName: string | null;
   onClearUpload: () => void;
-  /** The post-lesson feedback card, when it should be shown. */
-  feedbackSlot?: ReactNode;
+  /** Banners shown above the chat: a failed-turn retry, the feedback card. */
+  notices?: ReactNode;
 }) {
   const [tab, setTab] = useState<Tab>("lesson");
   const topicCount = profile.topics.length;
@@ -119,7 +119,7 @@ export function BrainPanel({
 
           <GroundingTrace chunks={groundedOn} documentName={documentName} />
 
-          {feedbackSlot}
+          {notices}
 
           <div className="min-h-0 flex-1">
             <ChatInterface
