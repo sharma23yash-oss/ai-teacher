@@ -241,6 +241,8 @@ DOCX and PPTX parsing, chunking, embedding storage, hybrid retrieval, and video 
 
 ## 14. Setup instructions
 
+Project docs: [`docs/AUDIT.md`](docs/AUDIT.md) (what exists, storage, routes, known problems) and [`docs/ROADMAP.md`](docs/ROADMAP.md) (what is done and next). Privacy note for users: `/privacy`.
+
 **Requirements:** Node.js 20+, and at least one of the three API keys.
 
 ```bash
@@ -248,7 +250,7 @@ git clone https://github.com/sharma23yash-oss/ai-teacher.git
 cd ai-teacher
 npm install
 
-cp .env.local.example .env.local
+cp .env.example .env.local   # every variable is documented in this file
 #   GEMINI_API_KEY=…   https://aistudio.google.com/apikey
 #   GROQ_API_KEY=…     https://console.groq.com/keys
 #   COHERE_API_KEY=…   https://dashboard.cohere.com/api-keys

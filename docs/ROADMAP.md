@@ -1,0 +1,62 @@
+# AI Teacher — roadmap
+
+Goal: prove that students actually learn, in their own language, for a specific exam niche.
+Status key: ✅ done · 🟡 partly exists · ⬜ not started. See [AUDIT.md](AUDIT.md) for how each piece works today.
+
+## Phase 1 — Onboarding and landing ✅
+
+| # | Item | Status | Where |
+| --- | --- | --- | --- |
+| 1 | One prompt box with defaults; settings in an Advanced drawer | ✅ | `components/onboarding/landing.tsx`, `components/stage/advanced-settings.tsx` |
+| 2 | Fast / Balanced / Deep with provider + model tooltip | ✅ | `components/stage/model-selector.tsx` |
+| 3 | Hero, How it works, three sample lessons, footer (privacy, free tier, feedback) | ✅ | `landing.tsx`, `components/site-footer.tsx`, `/privacy` |
+| 4 | Title, description, Open Graph, Twitter, preview image, sitemap, robots | ✅ | `app/layout.tsx`, `app/opengraph-image.tsx`, `app/sitemap.ts`, `app/robots.ts` |
+
+## Phase 2 — Learning engine ⬜ (next)
+
+| # | Item | Status | Builds on |
+| --- | --- | --- | --- |
+| 5 | Mastery score, confidence, last practised, decay; shown in skill tree | 🟡 | Concept statuses + learner profile already track completed/weak |
+| 6 | Hint ladder (nudge → hint → worked step → solution), factored into mastery | ⬜ | Scaffolding phase in the prompt |
+| 7 | Teach-back with gap and misconception detection | 🟡 | Feynman mode — extend, don't duplicate |
+| 8 | Spaced repetition (SM-2 style), daily 10-minute revision, streak | ⬜ | Learner profile |
+| 9 | Misconception library (JSON per subject) → diagnostic questions | ⬜ | |
+| 10 | End-of-lesson summary card with shareable image | 🟡 | Quiz report card |
+
+Tests for mastery, spaced repetition and the hint ladder with `node --test` (no new dependency).
+
+## Phase 3 — Grounded content and exam niche ⬜
+
+| # | Item | Status | Builds on |
+| --- | --- | --- | --- |
+| 11 | Upload-to-course: chapter summaries, Q&A, **page** citations, "not in your source" answers | 🟡 | RAG pipeline; needs page numbers in extraction |
+| 12 | Presets: NISM Series XV, CFA Level I, GATE, board exams, with syllabus maps and weightage | 🟡 | Generic NISM / CFA / GATE presets exist |
+| 13 | Question generator with difficulty, explanations, marking-scheme feedback | ⬜ | Quiz stage (MCQ only today) |
+
+## Phase 4 — Evidence and quality ⬜
+
+| # | Item | Status | Builds on |
+| --- | --- | --- | --- |
+| 14 | Pre/post-test improvement, 7/30-day returns, cost per lesson, anonymous ID | 🟡 | Aggregate metrics exist; no ID, returns, pre/post or cost |
+| 15 | Password-protected /metrics with charts and CSV | 🟡 | `/metrics` with token exists; no charts or CSV |
+| 16 | "Did you understand?" rating + comment | ✅ | `components/brain/feedback-card.tsx` |
+| 17 | Evaluation harness across all models; routing from results | ⬜ | |
+| 18 | Input/output moderation, refusals, age-appropriate language | 🟡 | Canary + output sanitiser; no moderation |
+
+## Phase 5 — India-specific and B2B ⬜
+
+| # | Item | Status | Builds on |
+| --- | --- | --- | --- |
+| 19 | Voice in/out, Hinglish code-switching, low-bandwidth mode | 🟡 | Voice and Hinglish exist; low-bandwidth mode does not |
+| 20 | Teacher/institute dashboard: class code, progress, weak topics, assignments, export | ⬜ | Needs server-side storage (decision pending) |
+| 21 | WhatsApp design doc (`docs/WHATSAPP.md`), no implementation until approved | ⬜ | |
+
+## Risks
+
+| Risk | Impact | Mitigation |
+| --- | --- | --- |
+| Metrics not persistent until Upstash is configured on Vercel | Numbers reset; can't report evidence | Set the Upstash variables before collecting data |
+| Exam syllabus and misconception content must be accurate and licensed | Wrong content damages trust with judges and students | Placeholders clearly marked; you supply or verify the content |
+| Free-tier provider limits | Slow or failed turns at busy times | Three-provider failover; low-bandwidth mode in Phase 5 |
+| No server-side student records | Blocks teacher dashboard and return metrics | Decide storage before Phase 4/5 (default: Upstash + anonymous ID) |
+| Process-local document index on Vercel | Citations can drop for a turn | Move index to shared storage in Phase 3 if page citations need it |

@@ -20,9 +20,7 @@ import {
   type Language,
 } from "@/lib/types";
 import { AdvancedSettings, type LessonSettingsControls } from "../stage/advanced-settings";
-
-export const FEEDBACK_URL =
-  process.env.NEXT_PUBLIC_FEEDBACK_URL || "https://github.com/sharma23yash-oss/ai-teacher/issues/new";
+import { SiteFooter } from "../site-footer";
 
 const UPLOAD_ACCEPT = ".pdf,.txt,.md,.docx,.pptx";
 
@@ -357,41 +355,4 @@ function examPlaceholder(preset: ExamPreset): string {
     case "gate":
       return "GATE CSE: deadlock and the Banker's algorithm";
   }
-}
-
-export function SiteFooter() {
-  return (
-    <footer className="border-t border-white/10">
-      <div className="mx-auto grid max-w-5xl gap-6 px-4 py-10 text-sm text-slate-300 sm:px-6 md:grid-cols-3">
-        <div>
-          <h2 className="font-semibold text-white">Privacy</h2>
-          <p className="mt-1">
-            No account needed. Your progress is saved only in this browser. Your questions are sent
-            to the AI model to write each reply, and uploaded files are held in temporary server
-            memory for your lesson. We count anonymous usage (lessons, quiz scores, language) with
-            no cookies, IDs or lesson content.
-          </p>
-        </div>
-        <div>
-          <h2 className="font-semibold text-white">Free to use</h2>
-          <p className="mt-1">
-            AI Teacher is free. It runs on the free tiers of Google Gemini, Groq and Cohere, so
-            replies can slow down at busy times, and there is a fair-use limit per minute.
-          </p>
-        </div>
-        <div>
-          <h2 className="font-semibold text-white">Feedback</h2>
-          <p className="mt-1">Something confusing, broken or missing? We read every note.</p>
-          <a
-            href={FEEDBACK_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-2 inline-block font-medium text-indigo-300 underline underline-offset-4 hover:text-indigo-200 focus-visible:outline-2 focus-visible:outline-indigo-400"
-          >
-            Send feedback
-          </a>
-        </div>
-      </div>
-    </footer>
-  );
 }
