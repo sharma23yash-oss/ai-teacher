@@ -18,16 +18,10 @@ import type { GestureEngineStatus, HeadPose } from "@/lib/use-gesture-recognitio
 import { SHOWCASE_MODE } from "@/lib/build-flags";
 import type {
   GestureSignal,
-  Language,
-  LearnerLevel,
   LessonPayload,
   QuizReport,
-  TeacherModelId,
-  TeacherPersona,
-  TimeBudget,
   VideoRefCallback,
   VisualMode,
-  VoiceGender,
 } from "@/lib/types";
 import type { AvatarState } from "./avatar-face";
 import { VideoStage } from "./video-stage";
@@ -39,12 +33,7 @@ import { QuizStage } from "./quiz-stage";
 import { VideoCallStage } from "./video-call-stage";
 import { VideoCallOverlay } from "./video-call-overlay";
 import { UploadDropzone } from "./upload-dropzone";
-import { ModelSelector } from "./model-selector";
-import { PersonaSelector } from "./persona-selector";
-import { VoiceSelector } from "./voice-selector";
-import { LanguageSelector } from "./language-selector";
-import { LevelSelector } from "./level-selector";
-import { TimeBudgetSelector } from "./time-budget-selector";
+import { AdvancedSettings, type LessonSettingsControls } from "./advanced-settings";
 
 type StageMode = "avatar" | "code" | "diagram" | "video" | "quiz" | "videocall";
 
@@ -70,20 +59,7 @@ export interface StagePanelProps {
   uploadError: string | null;
   onUpload: (file: File) => void;
   onClearUpload: () => void;
-  model: TeacherModelId;
-  onModelChange: (model: TeacherModelId) => void;
-  extendedThinking: boolean;
-  onExtendedThinkingChange: (enabled: boolean) => void;
-  persona: TeacherPersona;
-  onPersonaChange: (persona: TeacherPersona) => void;
-  voiceGender: VoiceGender;
-  onVoiceGenderChange: (voiceGender: VoiceGender) => void;
-  language: Language;
-  onLanguageChange: (language: Language) => void;
-  learnerLevel: LearnerLevel;
-  onLearnerLevelChange: (level: LearnerLevel) => void;
-  timeBudget: TimeBudget;
-  onTimeBudgetChange: (timeBudget: TimeBudget) => void;
+  settings: LessonSettingsControls;
   avatarState: AvatarState;
   readMouthFrame: () => MouthFrame;
   isAudioBlocked: boolean;
@@ -115,20 +91,7 @@ export function StagePanel({
   uploadError,
   onUpload,
   onClearUpload,
-  model,
-  onModelChange,
-  extendedThinking,
-  onExtendedThinkingChange,
-  persona,
-  onPersonaChange,
-  voiceGender,
-  onVoiceGenderChange,
-  language,
-  onLanguageChange,
-  learnerLevel,
-  onLearnerLevelChange,
-  timeBudget,
-  onTimeBudgetChange,
+  settings,
   avatarState,
   readMouthFrame,
   isAudioBlocked,
@@ -149,6 +112,7 @@ export function StagePanel({
   lastGestureSignal,
   lastGestureSignalId,
 }: StagePanelProps) {
+  const { persona, voiceGender, language, learnerLevel } = settings;
   const [mode, setMode] = useState<StageMode>(() => toStageMode(lesson.visual_director.mode));
   // Tracks which `lesson` the current `mode` was derived from, so we can
   // re-sync the Stage on every new AI turn while leaving a manual tab pick
@@ -248,24 +212,6 @@ export function StagePanel({
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-5 py-2.5">
         <div className="flex flex-wrap items-center gap-3">
-          <ModelSelector
-            model={model}
-            onModelChange={onModelChange}
-            extendedThinking={extendedThinking}
-            onExtendedThinkingChange={onExtendedThinkingChange}
-          />
-          <PersonaSelector persona={persona} onPersonaChange={onPersonaChange} />
-          <VoiceSelector
-            persona={persona}
-            voiceGender={voiceGender}
-            onVoiceGenderChange={onVoiceGenderChange}
-          />
-          <LanguageSelector language={language} onLanguageChange={onLanguageChange} />
-          <LevelSelector
-            learnerLevel={learnerLevel}
-            onLearnerLevelChange={onLearnerLevelChange}
-          />
-          <TimeBudgetSelector timeBudget={timeBudget} onTimeBudgetChange={onTimeBudgetChange} />
           <button
             onClick={onTakeQuiz}
             disabled={isQuizLoading}
@@ -302,6 +248,7 @@ export function StagePanel({
           onUpload={onUpload}
           onClearUpload={onClearUpload}
         />
+        <AdvancedSettings settings={settings} />
       </div>
 
       <div className="relative flex-1 overflow-hidden">

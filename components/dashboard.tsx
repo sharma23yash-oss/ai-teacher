@@ -40,6 +40,7 @@ import { useNarrator } from "@/lib/use-narrator";
 import { useGestureRecognition } from "@/lib/use-gesture-recognition";
 import type { AvatarState } from "./stage/avatar-face";
 import { StagePanel } from "./stage/stage-panel";
+import type { LessonSettingsControls } from "./stage/advanced-settings";
 import { BrainPanel } from "./brain/brain-panel";
 
 // Thrown only for messages handleUpload has itself written (a network
@@ -780,6 +781,23 @@ export function Dashboard() {
     setCurrentTopic(null);
   }
 
+  const settings: LessonSettingsControls = {
+    model,
+    onModelChange: setModel,
+    extendedThinking,
+    onExtendedThinkingChange: setExtendedThinking,
+    persona,
+    onPersonaChange: handlePersonaChange,
+    voiceGender,
+    onVoiceGenderChange: setVoiceGender,
+    language,
+    onLanguageChange: handleLanguageChange,
+    learnerLevel,
+    onLearnerLevelChange: handleLearnerLevelChange,
+    timeBudget,
+    onTimeBudgetChange: handleTimeBudgetChange,
+  };
+
   const avatarState: AvatarState = narrator.isSpeaking
     ? "talking"
     : isMicListening
@@ -810,20 +828,7 @@ export function Dashboard() {
             uploadError={uploadError}
             onUpload={handleUpload}
             onClearUpload={() => setUploadedNote(null)}
-            model={model}
-            onModelChange={setModel}
-            extendedThinking={extendedThinking}
-            onExtendedThinkingChange={setExtendedThinking}
-            persona={persona}
-            onPersonaChange={handlePersonaChange}
-            voiceGender={voiceGender}
-            onVoiceGenderChange={setVoiceGender}
-            language={language}
-            onLanguageChange={handleLanguageChange}
-            learnerLevel={learnerLevel}
-            onLearnerLevelChange={handleLearnerLevelChange}
-            timeBudget={timeBudget}
-            onTimeBudgetChange={handleTimeBudgetChange}
+            settings={settings}
             avatarState={avatarState}
             readMouthFrame={narrator.readMouthFrame}
             isAudioBlocked={narrator.isBlocked}
