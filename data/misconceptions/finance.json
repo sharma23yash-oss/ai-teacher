@@ -1,0 +1,136 @@
+{
+  "subject": "finance",
+  "label": "Finance and economics",
+  "entries": [
+    {
+      "id": "revenue-is-profit",
+      "concept": "Revenue and profit",
+      "keywords": [
+        "revenue",
+        "profit",
+        "net income",
+        "net profit",
+        "profit margin",
+        "income statement",
+        "sales"
+      ],
+      "wrongBelief": "Revenue (sales) is the same as profit, so a company with high revenue is making a lot of money.",
+      "whyWrong": "Revenue is the money earned from sales before any costs. Profit is what is left after subtracting costs, interest and taxes. A company can have large revenue and still make a loss.",
+      "diagnosticQuestion": "A shop sells goods worth ₹10 lakh in a year and its costs are ₹11 lakh. What is its revenue, and what is its profit?",
+      "fix": "Walk down the income statement: revenue minus costs gives operating profit; minus interest and tax gives net profit. Margin is profit divided by revenue."
+    },
+    {
+      "id": "cash-is-profit",
+      "concept": "Cash flow and profit",
+      "keywords": [
+        "cash flow",
+        "cash flow statement",
+        "free cash flow",
+        "accrual",
+        "working capital",
+        "operating cash flow"
+      ],
+      "wrongBelief": "If a company reports a profit, it must have that much cash.",
+      "whyWrong": "Profit is calculated on an accrual basis: sales on credit count as revenue before the cash arrives, and capital spending is spread out as depreciation. A profitable firm can run out of cash if customers pay late or it invests heavily.",
+      "diagnosticQuestion": "A company books ₹50 crore of sales on 90-day credit this quarter and reports a profit. Why might its bank balance have gone down?",
+      "fix": "Reconcile profit to operating cash flow: add back depreciation, then adjust for changes in receivables, inventory and payables."
+    },
+    {
+      "id": "high-pe-overvalued",
+      "concept": "Price-to-earnings ratio",
+      "keywords": [
+        "p e ratio",
+        "pe ratio",
+        "price to earnings",
+        "price earnings",
+        "valuation multiple",
+        "earnings multiple"
+      ],
+      "wrongBelief": "A high P/E ratio always means the stock is overvalued, and a low P/E means it is cheap.",
+      "whyWrong": "P/E reflects what investors expect about future growth and risk. A fast-growing company can justify a high P/E; a low P/E can signal falling earnings or high risk (a value trap). It only means something compared with growth, peers and history.",
+      "diagnosticQuestion": "Company A has a P/E of 40 and earnings growing 35% a year. Company B has a P/E of 8 and earnings shrinking 10% a year. Which is 'cheaper', and what else would you check?",
+      "fix": "Compare P/E with expected growth (for example the PEG ratio), with sector peers, and with the company's own history; check the quality and stability of the earnings."
+    },
+    {
+      "id": "bond-price-yield-same-direction",
+      "concept": "Bond prices and yields",
+      "keywords": [
+        "bond price",
+        "bond prices",
+        "yield to maturity",
+        "bond yield",
+        "interest rate risk",
+        "duration",
+        "coupon"
+      ],
+      "wrongBelief": "When interest rates rise, existing bond prices rise too.",
+      "whyWrong": "An existing bond pays a fixed coupon. When new bonds offer higher rates, the old bond is only attractive at a lower price, so prices and yields move in opposite directions. Longer duration means a bigger price change.",
+      "diagnosticQuestion": "You own a bond paying a 7% coupon. Market rates rise to 9%. Would a new buyer pay more or less than face value for your bond, and why?",
+      "fix": "Price is the present value of fixed future cash flows: a higher discount rate means a lower present value. Then show duration as the sensitivity."
+    },
+    {
+      "id": "diversification-removes-all-risk",
+      "concept": "Diversification",
+      "keywords": [
+        "diversification",
+        "diversify",
+        "systematic risk",
+        "unsystematic risk",
+        "market risk",
+        "portfolio risk",
+        "beta"
+      ],
+      "wrongBelief": "With enough stocks in a portfolio, diversification removes all risk.",
+      "whyWrong": "Diversification removes company-specific (unsystematic) risk, but market-wide (systematic) risk such as recessions or rate changes affects almost all stocks and remains. That remaining risk is what beta measures and what investors are paid for.",
+      "diagnosticQuestion": "You hold 50 stocks across every sector. The whole market falls 20% in a recession. What happens to your portfolio, and which kind of risk did diversification fail to remove?",
+      "fix": "Split total risk into systematic and unsystematic; show the risk curve flattening as stocks are added, never reaching zero."
+    },
+    {
+      "id": "split-creates-value",
+      "concept": "Stock splits and bonus issues",
+      "keywords": [
+        "stock split",
+        "share split",
+        "bonus issue",
+        "bonus shares",
+        "corporate action",
+        "corporate actions"
+      ],
+      "wrongBelief": "A stock split or bonus issue makes shareholders richer because they now own more shares.",
+      "whyWrong": "A split or bonus issue divides the same company into more pieces. The share price adjusts down in proportion, so each holder's total value and percentage ownership stay the same (ignoring market sentiment).",
+      "diagnosticQuestion": "You own 100 shares at ₹1,000. The company does a 1:1 bonus issue. How many shares do you have, what is the new price, and what is your holding worth?",
+      "fix": "Use the pizza analogy: cutting it into more slices doesn't add pizza. Market cap = price × shares, and it doesn't change on the ex-date."
+    },
+    {
+      "id": "nominal-is-real",
+      "concept": "Inflation and real returns",
+      "keywords": [
+        "inflation",
+        "real return",
+        "nominal return",
+        "real interest rate",
+        "purchasing power",
+        "cpi"
+      ],
+      "wrongBelief": "If my fixed deposit earns 7%, I am 7% richer at the end of the year.",
+      "whyWrong": "Inflation reduces what money can buy. The real return is roughly the nominal return minus inflation; with 7% interest and 6% inflation, purchasing power grows only about 1% (and less after tax).",
+      "diagnosticQuestion": "Your deposit earns 6% while prices rise 7%. After a year, can you buy more or less than before?",
+      "fix": "Introduce real return ≈ nominal − inflation (exactly (1 + n) / (1 + i) − 1), then work a numeric example of what ₹100 buys."
+    },
+    {
+      "id": "upi-is-a-wallet",
+      "concept": "How UPI works",
+      "keywords": [
+        "upi",
+        "unified payments interface",
+        "digital payments",
+        "npci",
+        "payment app"
+      ],
+      "wrongBelief": "UPI is a wallet: money is stored inside the UPI app, like cash in a purse.",
+      "whyWrong": "UPI is a payment system run by NPCI that moves money directly from one bank account to another in real time. The app (PhonePe, Google Pay, BHIM and others) is only an interface; the money stays in the bank account until the transfer.",
+      "diagnosticQuestion": "You pay a shopkeeper ₹200 by UPI. Where was that money just before you paid, and where is it just after?",
+      "fix": "Trace the path: your app sends the request, NPCI routes it, your bank debits your account and the payee's bank credits theirs. Contrast this with a prepaid wallet that holds a balance."
+    }
+  ]
+}

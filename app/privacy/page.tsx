@@ -27,9 +27,10 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
     title: "Saved on your device",
     body: (
       <p>
-        Your lesson history, quiz scores, the concepts you have mastered and your settings are kept
-        in your browser&apos;s local storage. They never leave your device unless you send them in a
-        lesson. Use <span className="font-medium text-white">Progress → Reset</span> or clear your
+        Your lesson history, quiz scores, mastery percentages, revision schedule, learning streak
+        and settings are kept in your browser&apos;s local storage. They never leave your device,
+        except that a short note on which concepts you find hard is sent with your next question so
+        the teacher can check them; it is not stored by us. Use <span className="font-medium text-white">Progress → Reset</span> or clear your
         browser data to delete them.
       </p>
     ),

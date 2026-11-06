@@ -21,6 +21,7 @@ import {
 } from "@/lib/types";
 import { AdvancedSettings, type LessonSettingsControls } from "../stage/advanced-settings";
 import { SiteFooter } from "../site-footer";
+import { RevisionPanel, type RevisionItem } from "./revision-panel";
 
 const UPLOAD_ACCEPT = ".pdf,.txt,.md,.docx,.pptx";
 
@@ -80,6 +81,9 @@ export function Landing({
   onUpload,
   onClearUpload,
   onStart,
+  revisionItems = [],
+  streak = 0,
+  onStartRevision,
 }: {
   settings: LessonSettingsControls;
   examPreset: ExamPreset | null;
@@ -91,6 +95,10 @@ export function Landing({
   onClearUpload: () => void;
   /** Starts the lesson. `language` overrides the current setting for this first turn. */
   onStart: (prompt: string, language?: Language) => void;
+  /** Concepts due for spaced-repetition review today (stored on this device). */
+  revisionItems?: RevisionItem[];
+  streak?: number;
+  onStartRevision?: () => void;
 }) {
   const [draft, setDraft] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -132,6 +140,10 @@ export function Landing({
             short lesson, asks you questions instead of lecturing, draws diagrams, quizzes you, and
             re-teaches what you missed, in English, Hinglish, Hindi and 16 other languages.
           </p>
+
+          {onStartRevision && (
+            <RevisionPanel items={revisionItems} streak={streak} onStart={onStartRevision} />
+          )}
 
           <form
             onSubmit={handleSubmit}

@@ -1,0 +1,101 @@
+{
+  "subject": "biology",
+  "label": "Biology",
+  "entries": [
+    {
+      "id": "plants-eat-soil",
+      "concept": "Where plants get their mass",
+      "keywords": [
+        "photosynthesis",
+        "plant nutrition",
+        "chlorophyll",
+        "plants",
+        "plant growth"
+      ],
+      "wrongBelief": "Plants get their food and most of their mass from the soil.",
+      "whyWrong": "Plants make their own food (glucose) by photosynthesis from carbon dioxide and water, using light energy. Most of a tree's dry mass comes from carbon in the air. Soil supplies water and small amounts of minerals.",
+      "diagnosticQuestion": "A seed grows into a 500 kg tree, but the soil in its pot barely loses weight. Where did the 500 kg come from?",
+      "fix": "Write the photosynthesis equation and follow the carbon atom: from CO₂ in the air into glucose, then into cellulose."
+    },
+    {
+      "id": "plants-dont-respire",
+      "concept": "Respiration in plants",
+      "keywords": [
+        "respiration",
+        "cellular respiration",
+        "mitochondria",
+        "aerobic respiration",
+        "photosynthesis"
+      ],
+      "wrongBelief": "Plants photosynthesise instead of respiring; only animals respire.",
+      "whyWrong": "All living cells, including plant cells, respire all the time to release energy from glucose. Photosynthesis happens only in light; respiration happens day and night. In bright light, photosynthesis just outpaces it.",
+      "diagnosticQuestion": "A plant is kept in a dark cupboard for a day. Is it taking in or giving out carbon dioxide? Why?",
+      "fix": "Contrast the two processes side by side (inputs, outputs, when, where) and show that respiration never stops."
+    },
+    {
+      "id": "antibiotics-kill-viruses",
+      "concept": "Antibiotics and viruses",
+      "keywords": [
+        "antibiotics",
+        "antibiotic",
+        "virus",
+        "viruses",
+        "bacteria",
+        "viral infection",
+        "bacterial infection"
+      ],
+      "wrongBelief": "Antibiotics cure viral infections like the common cold or flu.",
+      "whyWrong": "Antibiotics target structures and processes found only in bacteria, such as the cell wall. Viruses have none of these and replicate inside our own cells, so antibiotics do nothing to them. Misuse also drives antibiotic resistance.",
+      "diagnosticQuestion": "A friend with a cold asks for antibiotics. Will they help? What could go wrong if lots of people do this?",
+      "fix": "Compare a bacterium (a living cell) with a virus (genetic material in a protein coat), and link antibiotic targets to bacterial structures."
+    },
+    {
+      "id": "individuals-evolve",
+      "concept": "Natural selection",
+      "keywords": [
+        "evolution",
+        "natural selection",
+        "adaptation",
+        "darwin",
+        "survival of the fittest"
+      ],
+      "wrongBelief": "Individual animals adapt during their lifetime and pass the changes on, for example giraffes stretching their necks.",
+      "whyWrong": "Populations evolve, not individuals. Variation already exists through mutation; individuals with useful traits survive and reproduce more, so those traits become more common over generations. Traits acquired during life are not inherited.",
+      "diagnosticQuestion": "Why do giraffes have long necks? Explain it without saying any giraffe stretched or 'needed' to change.",
+      "fix": "Use the four steps: variation, competition, selective survival and reproduction, inheritance over many generations."
+    },
+    {
+      "id": "blue-blood",
+      "concept": "Blood colour and circulation",
+      "keywords": [
+        "blood",
+        "veins",
+        "deoxygenated blood",
+        "circulation",
+        "circulatory system",
+        "haemoglobin"
+      ],
+      "wrongBelief": "Blood in veins is blue and turns red when it meets oxygen.",
+      "whyWrong": "Blood is always red. Haemoglobin is bright red with oxygen and darker red without it. Veins look blue because of how light passes through skin and tissue.",
+      "diagnosticQuestion": "When blood is taken from a vein for a test, what colour is it in the tube?",
+      "fix": "Link colour to haemoglobin's oxygen state, then explain the blue look as an optical effect of skin."
+    },
+    {
+      "id": "dominant-means-common",
+      "concept": "Dominant and recessive alleles",
+      "keywords": [
+        "dominant allele",
+        "dominant",
+        "recessive",
+        "alleles",
+        "allele",
+        "genetics",
+        "inheritance"
+      ],
+      "wrongBelief": "Dominant traits are the most common ones in a population.",
+      "whyWrong": "Dominant only means the trait shows when one copy of the allele is present. How common a trait is depends on allele frequency, which has nothing to do with dominance. Polydactyly (extra fingers) is dominant but rare.",
+      "diagnosticQuestion": "Extra fingers (polydactyly) is caused by a dominant allele. Why do most people have five fingers?",
+      "fix": "Separate how an allele is expressed (dominance) from how common it is (frequency) using a Punnett square and a population example."
+    }
+  ]
+}

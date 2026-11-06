@@ -1,0 +1,99 @@
+{
+  "subject": "computer-science",
+  "label": "Computer science",
+  "entries": [
+    {
+      "id": "assignment-is-equality",
+      "concept": "Assignment vs comparison",
+      "keywords": [
+        "assignment",
+        "assignment operator",
+        "equality",
+        "comparison operator",
+        "operators",
+        "if statement"
+      ],
+      "wrongBelief": "'=' in code means the two sides are equal, the same as in maths.",
+      "whyWrong": "In most languages '=' assigns: it copies the value on the right into the variable on the left. Checking equality uses '==' (or '===' in JavaScript). 'x = x + 1' is impossible as an equation but normal as an instruction.",
+      "diagnosticQuestion": "What does x hold after running: x = 5, then x = x + 1? Would 'if x = 6' check anything in Python?",
+      "fix": "Read '=' aloud as 'becomes' or 'gets'. Contrast assignment (a command that changes state) with comparison (a question that returns true or false)."
+    },
+    {
+      "id": "variables-are-formulas",
+      "concept": "How variables store values",
+      "keywords": [
+        "variable",
+        "variables",
+        "variable assignment",
+        "state"
+      ],
+      "wrongBelief": "After b = a + 1, changing a later also changes b automatically, like a spreadsheet formula.",
+      "whyWrong": "The expression is evaluated once, at the moment of assignment, and b stores the resulting value. Later changes to a do not touch b unless b is assigned again.",
+      "diagnosticQuestion": "a = 2, then b = a + 1, then a = 10. What is b now?",
+      "fix": "Trace the program line by line in a table of variable values, updating only the variable on the left of each assignment."
+    },
+    {
+      "id": "index-starts-at-one",
+      "concept": "Array indexing",
+      "keywords": [
+        "array",
+        "arrays",
+        "list index",
+        "indexing",
+        "zero based",
+        "index"
+      ],
+      "wrongBelief": "The first element of an array or list is at index 1.",
+      "whyWrong": "In most languages (Python, Java, C, JavaScript) indexes start at 0, because the index is the offset from the start. A list of length n has valid indexes 0 to n − 1.",
+      "diagnosticQuestion": "nums = [4, 8, 15]. What is nums[1]? What happens with nums[3]?",
+      "fix": "Explain the index as 'how many steps from the start', then practise with the last index len − 1 and the off-by-one error."
+    },
+    {
+      "id": "recursion-no-base-case",
+      "concept": "Recursion",
+      "keywords": [
+        "recursion",
+        "recursive function",
+        "recursive",
+        "base case",
+        "call stack"
+      ],
+      "wrongBelief": "A recursive function just calls itself, and it somehow knows when to stop.",
+      "whyWrong": "A recursive function must have a base case that returns without recursing, and each recursive call must move closer to that base case. Without both, calls pile up on the call stack until it overflows.",
+      "diagnosticQuestion": "What happens when you call this with n = 3: def f(n): return n * f(n - 1)? What line is missing?",
+      "fix": "Trace the call stack on paper for factorial(3), marking where the base case stops the descent and how the results return upward."
+    },
+    {
+      "id": "big-o-is-exact-time",
+      "concept": "Big-O notation",
+      "keywords": [
+        "big o",
+        "big o notation",
+        "time complexity",
+        "algorithm complexity",
+        "asymptotic",
+        "complexity"
+      ],
+      "wrongBelief": "Big-O gives the exact running time, so an O(n) algorithm is always faster than an O(n²) one.",
+      "whyWrong": "Big-O describes how running time grows as input size grows, ignoring constant factors and small inputs. For small n, an O(n²) algorithm with a tiny constant can beat an O(n) one with a large constant.",
+      "diagnosticQuestion": "Algorithm A takes 1000·n steps and B takes n² steps. Which is faster for n = 10? For n = 1,000,000?",
+      "fix": "Plot or tabulate the two step counts for growing n to show the crossover point; Big-O is about the shape of growth."
+    },
+    {
+      "id": "https-means-trustworthy",
+      "concept": "HTTPS and website trust",
+      "keywords": [
+        "https",
+        "ssl",
+        "tls",
+        "encryption",
+        "padlock",
+        "certificate"
+      ],
+      "wrongBelief": "The padlock (HTTPS) means a website is safe and trustworthy.",
+      "whyWrong": "HTTPS means the connection is encrypted and the certificate matches the domain name. It says nothing about who runs the site or whether they are honest; phishing sites routinely use HTTPS.",
+      "diagnosticQuestion": "A site at paypa1-login.com shows the padlock. What does the padlock prove, and what does it not prove?",
+      "fix": "Separate 'private connection' from 'trustworthy owner'. Teach checking the exact domain name as the real trust signal."
+    }
+  ]
+}

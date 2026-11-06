@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { buildSystemInstruction, buildTurns } from "@/lib/pedagogy-engine";
+import { diagnosticsFor } from "@/lib/learning/misconception-library";
 import { getDocument, leadingContext, retrieve } from "@/lib/rag/store";
 import {
   AllProvidersFailedError,
@@ -89,6 +90,14 @@ export async function POST(request: Request) {
     }
   }
 
+  // Misconception library: match on the concept being taught plus what the
+  // student just said (on the first turn, that is the topic itself). Quiz
+  // turns are left alone; they have their own question format.
+  const currentConceptLabel =
+    body.lessonState?.concept_plan.find((concept) => concept.status === "current")?.label ?? "";
+  const diagnostics =
+    action === "take_quiz" ? "" : diagnosticsFor(`${currentConceptLabel} ${body.message}`);
+
   const messages = buildTurns({
     history: body.history,
     currentMessage: body.message,
@@ -123,6 +132,11 @@ export async function POST(request: Request) {
           teachMode,
           canaryToken,
           body.examPreset,
+          {
+            hintLevel: body.hintLevel,
+            revisionConcepts: body.revisionConcepts,
+            diagnostics,
+          },
         ),
     });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
-import { FileText, Loader2, Mic, MicOff, Plus, Send, X } from "lucide-react";
+import { FileText, Lightbulb, Loader2, Mic, MicOff, Plus, Send, Speech, X } from "lucide-react";
 import { LANGUAGE_META } from "@/lib/types";
 import type { ChatMessage, Language, RefinePromptResponseBody } from "@/lib/types";
 import { SHOWCASE_MODE } from "@/lib/build-flags";
@@ -88,6 +88,18 @@ interface DocumentNotice {
   afterIndex: number;
 }
 
+/** Learning tools shown above the input: the hint ladder and teach-back. */
+export interface LearningActions {
+  /** Label for the next hint rung, or null when there is no question to hint on / the ladder is used up. */
+  hintLabel: string | null;
+  /** 1-4 rungs used on the current concept so far. */
+  hintsUsed: number;
+  onHint: () => void;
+  teachBackActive: boolean;
+  canTeachBack: boolean;
+  onToggleTeachBack: () => void;
+}
+
 export function ChatInterface({
   messages,
   onSend,
@@ -101,6 +113,7 @@ export function ChatInterface({
   uploadError,
   uploadedFileName,
   onClearUpload,
+  learningActions,
 }: {
   messages: ChatMessage[];
   onSend: (content: string) => void;
@@ -115,6 +128,7 @@ export function ChatInterface({
   uploadError: string | null;
   uploadedFileName: string | null;
   onClearUpload: () => void;
+  learningActions?: LearningActions;
 }) {
   const [draft, setDraft] = useState("");
   // Picked client-side, after mount, on purpose: a random pick made during SSR
@@ -380,6 +394,43 @@ export function ChatInterface({
           <p role="alert" className="mb-2 px-1 text-xs text-red-600">{micError}</p>
         )}
         {refineError && <p role="alert" className="mb-2 px-1 text-xs text-red-600">{refineError}</p>}
+
+        {learningActions && (learningActions.hintLabel || learningActions.canTeachBack || learningActions.teachBackActive) && (
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            {learningActions.hintLabel && (
+              <button
+                type="button"
+                onClick={learningActions.onHint}
+                disabled={isThinking}
+                title="Hints come in steps: nudge, hint, worked step, full solution. Each step gives a bit more away."
+                className="flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Lightbulb size={13} aria-hidden="true" />
+                {learningActions.hintLabel}
+                {learningActions.hintsUsed > 0 && (
+                  <span className="text-amber-700/80">({learningActions.hintsUsed}/4 used)</span>
+                )}
+              </button>
+            )}
+            {(learningActions.canTeachBack || learningActions.teachBackActive) && (
+              <button
+                type="button"
+                onClick={learningActions.onToggleTeachBack}
+                disabled={isThinking}
+                aria-pressed={learningActions.teachBackActive}
+                title="Explain the current concept in your own words. The teacher checks it for gaps."
+                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                  learningActions.teachBackActive
+                    ? "border-indigo-500 bg-indigo-600 text-white hover:bg-indigo-500"
+                    : "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                }`}
+              >
+                <Speech size={13} aria-hidden="true" />
+                {learningActions.teachBackActive ? "Explaining back · stop" : "Explain it back"}
+              </button>
+            )}
+          </div>
+        )}
 
         {canRefine && (
           <div className="mb-2 flex justify-end">

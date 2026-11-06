@@ -13,6 +13,8 @@ import { SkillTree } from "./skill-tree";
 import { ChatInterface } from "./chat-interface";
 import { ProgressPanel } from "./progress-panel";
 import { GroundingTrace } from "./grounding-trace";
+import type { MasteryView } from "@/lib/learning/state";
+import type { LearningActions } from "./chat-interface";
 
 type Tab = "lesson" | "progress";
 
@@ -36,6 +38,8 @@ export function BrainPanel({
   uploadedFileName,
   onClearUpload,
   notices,
+  mastery,
+  learningActions,
 }: {
   concepts: ConceptNode[];
   /** Concept id to flash a mastery-ping on right now, or null for none. */
@@ -59,6 +63,9 @@ export function BrainPanel({
   onClearUpload: () => void;
   /** Banners shown above the chat: a failed-turn retry, the feedback card. */
   notices?: ReactNode;
+  mastery?: Record<string, MasteryView | null>;
+  /** Hint ladder and teach-back buttons shown above the chat input. */
+  learningActions?: LearningActions;
 }) {
   const [tab, setTab] = useState<Tab>("lesson");
   const topicCount = profile.topics.length;
@@ -114,7 +121,11 @@ export function BrainPanel({
       ) : (
         <>
           <div className="border-b border-slate-200">
-            <SkillTree concepts={concepts} celebratingConceptId={celebratingConceptId} />
+            <SkillTree
+              concepts={concepts}
+              celebratingConceptId={celebratingConceptId}
+              mastery={mastery}
+            />
           </div>
 
           <GroundingTrace chunks={groundedOn} documentName={documentName} />
@@ -135,6 +146,7 @@ export function BrainPanel({
               uploadError={uploadError}
               uploadedFileName={uploadedFileName}
               onClearUpload={onClearUpload}
+              learningActions={learningActions}
             />
           </div>
         </>

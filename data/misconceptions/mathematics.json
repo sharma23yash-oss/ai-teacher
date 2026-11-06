@@ -1,0 +1,82 @@
+{
+  "subject": "mathematics",
+  "label": "Mathematics",
+  "entries": [
+    {
+      "id": "multiply-makes-bigger",
+      "concept": "Multiplying by fractions and decimals",
+      "keywords": [
+        "multiplication",
+        "multiply",
+        "fractions",
+        "decimals",
+        "multiplying fractions"
+      ],
+      "wrongBelief": "Multiplying always makes a number bigger, and dividing always makes it smaller.",
+      "whyWrong": "Multiplying by a number between 0 and 1 makes the result smaller, and dividing by it makes the result bigger. 'Times ½' means 'half of'.",
+      "diagnosticQuestion": "Which is bigger: 8 × 0.5 or 8 ÷ 0.5? Explain why.",
+      "fix": "Read 'a × ½' as 'half of a' and 'a ÷ ½' as 'how many halves fit in a', using a number line."
+    },
+    {
+      "id": "percent-change-symmetric",
+      "concept": "Percentage change",
+      "keywords": [
+        "percentage",
+        "percentage change",
+        "percent",
+        "percentage increase",
+        "percentage decrease"
+      ],
+      "wrongBelief": "A 50% rise followed by a 50% fall brings you back to where you started.",
+      "whyWrong": "Each percentage applies to a different base. ₹100 up 50% is ₹150; 50% of ₹150 is ₹75, so you end at ₹75. Recovering from a 50% loss needs a 100% gain.",
+      "diagnosticQuestion": "A share falls from ₹200 by 50%. By what percentage must it rise to get back to ₹200?",
+      "fix": "Always ask 'percent of what?' and turn changes into multipliers: up 50% is × 1.5, down 50% is × 0.5, and 1.5 × 0.5 = 0.75."
+    },
+    {
+      "id": "correlation-is-causation",
+      "concept": "Correlation and causation",
+      "keywords": [
+        "correlation",
+        "causation",
+        "regression",
+        "statistics",
+        "correlated"
+      ],
+      "wrongBelief": "If two things are strongly correlated, one must cause the other.",
+      "whyWrong": "Correlation shows two variables move together, but the link may come from a third factor (a confounder), from reverse causation, or from chance. Ice-cream sales and drowning both rise in summer because of hot weather.",
+      "diagnosticQuestion": "Cities with more doctors have more deaths each year. Do doctors cause deaths? What else explains it?",
+      "fix": "List the alternatives every time: a confounder, reverse direction, or coincidence; then explain what a controlled experiment adds."
+    },
+    {
+      "id": "square-of-sum",
+      "concept": "Expanding (a + b)²",
+      "keywords": [
+        "algebra",
+        "expanding brackets",
+        "binomial",
+        "square of a sum",
+        "algebraic identities",
+        "identities"
+      ],
+      "wrongBelief": "(a + b)² = a² + b².",
+      "whyWrong": "(a + b)² means (a + b)(a + b), which expands to a² + 2ab + b². The 2ab term comes from the two cross products.",
+      "diagnosticQuestion": "Is (3 + 4)² equal to 3² + 4²? Work out both sides.",
+      "fix": "Check with numbers first, then draw the square of side a + b split into a², b² and two ab rectangles."
+    },
+    {
+      "id": "gamblers-fallacy",
+      "concept": "Independent events",
+      "keywords": [
+        "probability",
+        "independent events",
+        "coin toss",
+        "gambler s fallacy",
+        "random"
+      ],
+      "wrongBelief": "After five heads in a row, tails is now more likely on the next toss.",
+      "whyWrong": "Coin tosses are independent: the coin has no memory, so the probability of tails on the next toss is still ½. Long-run averages even out by adding many more trials, not by correcting past ones.",
+      "diagnosticQuestion": "A fair coin lands heads five times in a row. What is the probability the sixth toss is tails?",
+      "fix": "Define independence, then show that every specific sequence of six tosses has probability (½)⁶, including HHHHHT and HHHHHH."
+    }
+  ]
+}

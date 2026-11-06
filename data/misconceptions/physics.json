@@ -1,0 +1,97 @@
+{
+  "subject": "physics",
+  "label": "Physics",
+  "entries": [
+    {
+      "id": "heavier-falls-faster",
+      "concept": "Free fall",
+      "keywords": [
+        "free fall",
+        "falling objects",
+        "acceleration due to gravity",
+        "gravity",
+        "galileo"
+      ],
+      "wrongBelief": "Heavier objects fall faster than lighter ones, even with no air.",
+      "whyWrong": "Gravity pulls harder on a heavier object, but it also has more inertia. Acceleration is force divided by mass, so the mass cancels and every object falls with the same acceleration g when air resistance is absent.",
+      "diagnosticQuestion": "A bowling ball and a tennis ball are dropped together on the Moon, where there is no air. Which lands first, and why?",
+      "fix": "Use a = F / m with F = m g: the m cancels, so a = g for every object. Air resistance, not weight, is why a feather falls slowly on Earth."
+    },
+    {
+      "id": "force-needed-for-motion",
+      "concept": "Newton's first law",
+      "keywords": [
+        "newton s first law",
+        "first law of motion",
+        "inertia",
+        "force and motion",
+        "friction"
+      ],
+      "wrongBelief": "A moving object needs a constant force to keep moving; it stops when the force runs out.",
+      "whyWrong": "An object keeps moving at constant velocity unless a net force acts on it. Things slow down on Earth because friction and air resistance are forces acting against the motion.",
+      "diagnosticQuestion": "A hockey puck slides across perfectly frictionless ice after the stick stops touching it. What happens to its speed, and why?",
+      "fix": "Separate 'no force' from 'no net force'. Ask what force is slowing an everyday object down; removing that force removes the slowing."
+    },
+    {
+      "id": "current-used-up",
+      "concept": "Electric current in a circuit",
+      "keywords": [
+        "electric current",
+        "series circuit",
+        "circuit",
+        "bulb",
+        "ammeter",
+        "ohm s law"
+      ],
+      "wrongBelief": "Current is used up by each bulb, so less current flows back to the battery than leaves it.",
+      "whyWrong": "Charge is conserved: in a series circuit the same current flows through every component. What the bulb uses is energy (the charges lose potential energy, measured as a voltage drop), not current.",
+      "diagnosticQuestion": "In a series circuit with two bulbs, an ammeter reads 0.5 A before the first bulb. What does it read after the second bulb?",
+      "fix": "Distinguish current (rate of charge flow, conserved around a loop) from energy (transferred to the bulb). Compare it to water in a closed pipe loop turning a wheel."
+    },
+    {
+      "id": "seasons-distance",
+      "concept": "Cause of the seasons",
+      "keywords": [
+        "seasons",
+        "summer",
+        "winter",
+        "axial tilt",
+        "earth s orbit",
+        "solstice"
+      ],
+      "wrongBelief": "Summer happens because the Earth is closer to the Sun.",
+      "whyWrong": "Earth's orbit is nearly circular and Earth is actually closest to the Sun in early January, during the northern winter. Seasons come from the 23.5 degree axial tilt, which changes how directly sunlight hits each hemisphere and how long the days are.",
+      "diagnosticQuestion": "If distance caused the seasons, what would you expect about the seasons in India and Australia at the same time? What actually happens?",
+      "fix": "Show that the hemispheres have opposite seasons at the same moment, which distance cannot explain, then link the tilt to the angle of sunlight and day length."
+    },
+    {
+      "id": "heat-vs-temperature",
+      "concept": "Heat and temperature",
+      "keywords": [
+        "heat",
+        "temperature",
+        "thermal energy",
+        "specific heat",
+        "thermometer"
+      ],
+      "wrongBelief": "Heat and temperature are the same thing.",
+      "whyWrong": "Temperature measures the average kinetic energy of the particles. Heat is energy transferred because of a temperature difference. A bathtub of warm water holds far more thermal energy than a cup of boiling water at a higher temperature.",
+      "diagnosticQuestion": "Which has more thermal energy: a cup of tea at 90 °C or a swimming pool at 30 °C? Which has the higher temperature?",
+      "fix": "Keep two words for two ideas: temperature is 'how hot' (per particle); heat is energy that flows from hot to cold, and depends on the amount of matter too."
+    },
+    {
+      "id": "mass-vs-weight",
+      "concept": "Mass and weight",
+      "keywords": [
+        "mass",
+        "weight",
+        "kilogram",
+        "weightlessness"
+      ],
+      "wrongBelief": "Mass and weight are the same, so an astronaut on the Moon has less mass.",
+      "whyWrong": "Mass is the amount of matter and is the same everywhere. Weight is the gravitational force on that mass (W = m g), measured in newtons, so it changes with g.",
+      "diagnosticQuestion": "A 60 kg astronaut goes to the Moon, where g is about one sixth of Earth's. What is their mass there, and what happens to their weight?",
+      "fix": "Mass in kilograms stays fixed; weight in newtons is m times g. Bathroom scales show kilograms only because they assume Earth's g."
+    }
+  ]
+}

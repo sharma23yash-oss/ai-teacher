@@ -7,6 +7,39 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { ConceptNode, ConceptStatus } from "@/lib/types";
+import type { MasteryBand } from "@/lib/learning/mastery";
+import type { MasteryView } from "@/lib/learning/state";
+
+// Text colours are the -700 shades so they pass WCAG AA on the white panel.
+const BAND_STYLES: Record<MasteryBand, { bar: string; text: string; label: string }> = {
+  new: { bar: "bg-slate-300", text: "text-slate-600", label: "new" },
+  weak: { bar: "bg-red-500", text: "text-red-700", label: "weak" },
+  developing: { bar: "bg-amber-500", text: "text-amber-700", label: "developing" },
+  proficient: { bar: "bg-sky-500", text: "text-sky-700", label: "proficient" },
+  mastered: { bar: "bg-emerald-500", text: "text-emerald-700", label: "mastered" },
+};
+
+function MasteryMeter({ view }: { view: MasteryView }) {
+  const style = BAND_STYLES[view.band];
+  return (
+    <div className="mt-1 flex items-center gap-2">
+      <div
+        role="meter"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={view.percent}
+        aria-label="Mastery"
+        aria-valuetext={`${view.percent}%, ${style.label}`}
+        className="h-1.5 w-20 overflow-hidden rounded-full bg-slate-100"
+      >
+        <div className={`h-full rounded-full ${style.bar}`} style={{ width: `${view.percent}%` }} />
+      </div>
+      <span className={`text-xs font-medium ${style.text}`}>
+        {view.percent}% · {style.label}
+      </span>
+    </div>
+  );
+}
 
 const STATUS_STYLES: Record<
   ConceptStatus,
@@ -34,8 +67,11 @@ const STATUS_STYLES: Record<
 export function SkillTree({
   concepts,
   celebratingConceptId,
+  mastery = {},
 }: {
   concepts: ConceptNode[];
+  /** Mastery per concept id, from this device's learning history. Missing = never practised. */
+  mastery?: Record<string, MasteryView | null>;
   /** Concept id to flash a mastery-ping on right now, or null for none —
    * set for a few seconds after Feynman Mode detects the mastery marker. */
   celebratingConceptId: string | null;
@@ -78,6 +114,7 @@ export function SkillTree({
                 >
                   {i + 1}. {concept.label}
                 </p>
+                {mastery[concept.id] && <MasteryMeter view={mastery[concept.id]!} />}
                 {concept.status === "misconception" && (
                   <p className="text-xs text-amber-600">Needs scaffolding</p>
                 )}

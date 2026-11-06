@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { AlertTriangle, GraduationCap, MessageSquareHeart, RotateCcw, X } from "lucide-react";
+import { AlertTriangle, ClipboardList, Flame, GraduationCap, MessageSquareHeart, RotateCcw, X } from "lucide-react";
 import {
   EXAM_PRESET_META,
   FEYNMAN_MASTERED_TOKEN,
@@ -49,6 +49,27 @@ import { FeedbackCard } from "./brain/feedback-card";
 import { track } from "@/lib/metrics/client";
 import type { FeedbackRating } from "@/lib/metrics/feedback";
 import { BrainPanel } from "./brain/brain-panel";
+import type { LearningActions } from "./brain/chat-interface";
+import { LessonSummaryDialog } from "./summary/lesson-summary";
+import {
+  HINT_BUTTON_LABEL,
+  HINT_REQUEST_TEXT,
+  nextHintLevel,
+  type HintLevel,
+} from "@/lib/learning/hint-ladder";
+import { conceptKey, evidenceFromPlanChange, type Evidence } from "@/lib/learning/mastery";
+import {
+  emptyLearningState,
+  masteryBriefing,
+  masteryFor,
+  recordEvidence,
+  revisionFor,
+  streakFor,
+  type LearningState,
+  type MasteryView,
+} from "@/lib/learning/state";
+import { clearLearningState, loadLearningState, saveLearningState } from "@/lib/learning/storage";
+import { buildLessonSummary } from "@/lib/learning/summary";
 
 // Thrown only for messages handleUpload has itself written (a network
 // failure, an unreadable response, or the server's own fail() string) —
@@ -165,7 +186,14 @@ interface TeachTurnInput {
    * new state has re-rendered into this closure.
    */
   languageOverride?: Language;
+  /** Set on a hint request: the rung being asked for. */
+  hintLevel?: Exclude<HintLevel, 0>;
+  /** Set when a revision starts, before revisionConcepts state has re-rendered. */
+  revisionConcepts?: string[];
 }
+
+/** Matches lib/schemas.ts BRIEFING_MAX_CHARS; the server rejects anything longer. */
+const BRIEFING_MAX_CHARS = 4000;
 
 export function Dashboard() {
   // False until the student starts their first lesson from the landing screen.
@@ -243,6 +271,20 @@ export function Dashboard() {
   /** What the student asked to learn — the key their history is filed under. */
   const [currentTopic, setCurrentTopic] = useState<string | null>(null);
 
+  // Mastery, review schedule and streak. Kept on this device only (Phase 2),
+  // hydrated after mount like the profile.
+  const [learning, setLearning] = useState<LearningState>(emptyLearningState);
+  // "Now" for decay and due dates, refreshed whenever the learning state
+  // changes; minute-level precision is plenty for day-scale decay.
+  const [learningNow, setLearningNow] = useState(() => new Date());
+  /** Hint rungs used on one concept. Resets naturally when the current concept changes. */
+  const [hint, setHint] = useState<{ conceptId: string; level: HintLevel } | null>(null);
+  /** Concept the student is explaining back, or null when teach-back is off. */
+  const [teachBackConceptId, setTeachBackConceptId] = useState<string | null>(null);
+  /** Concepts in an active spaced-repetition revision, or null for a normal lesson. */
+  const [revisionConcepts, setRevisionConcepts] = useState<string[] | null>(null);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+
   const [isVideoCallActive, setIsVideoCallActive] = useState(false);
   const [videoCallError, setVideoCallError] = useState<string | null>(null);
 
@@ -258,6 +300,8 @@ export function Dashboard() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setProfile(stored);
     setProfileLoaded(true);
+    setLearning(loadLearningState());
+    setLearningNow(new Date());
     if (stored.topics.length > 0 || stored.history.length > 0) {
       setLanguage(stored.preferredLanguage);
       setLearnerLevel(stored.preferredLevel);
@@ -332,8 +376,8 @@ export function Dashboard() {
   const narrator = useNarrator();
 
   /** Records a lesson as completed once, and asks how it went. */
-  const markLessonCompleted = useCallback((via: "concepts" | "quiz") => {
-    if (lessonCompletedRef.current || lessonStartedAtRef.current === null) return;
+  const markLessonCompleted = useCallback((via: "concepts" | "quiz"): boolean => {
+    if (lessonCompletedRef.current || lessonStartedAtRef.current === null) return false;
     lessonCompletedRef.current = true;
     track({
       type: "lesson_completed",
@@ -341,6 +385,19 @@ export function Dashboard() {
       durationSec: Math.round((Date.now() - lessonStartedAtRef.current) / 1000),
     });
     setFeedbackState((state) => (state === "hidden" ? "open" : state));
+    return true;
+  }, []);
+
+  /** Folds evidence into mastery, review cards and the streak, and saves it. */
+  const addEvidence = useCallback((evidence: Evidence[]) => {
+    if (evidence.length === 0) return;
+    const now = new Date();
+    setLearning((previous) => {
+      const next = recordEvidence(previous, evidence, now);
+      saveLearningState(next);
+      return next;
+    });
+    setLearningNow(now);
   }, []);
 
   // Session length: measured from page load to the first time the page is
@@ -450,7 +507,10 @@ export function Dashboard() {
       mode,
       lessonStateOverride,
       languageOverride,
+      hintLevel: requestedHint,
+      revisionConcepts: revisionOverride,
       } = turnInput;
+      const turnRevision = revisionOverride ?? revisionConcepts ?? undefined;
       const turnLanguage = languageOverride ?? language;
       setFailedTurn(null);
       const historyBeforeThisTurn = messages;
@@ -466,7 +526,8 @@ export function Dashboard() {
       else setIsThinking(true);
 
       const webcamFrame = captureWebcamFrame();
-      const effectiveMode: TeachMode = mode ?? (isFeynmanMode ? "feynman" : "socratic");
+      const effectiveMode: TeachMode =
+        mode ?? (isFeynmanMode ? "feynman" : teachBackConceptId ? "teachback" : "socratic");
       // Replayed into the prompt on every turn: whichever provider ends up
       // serving this request resumes this exact concept plan instead of
       // starting the topic over.
@@ -491,7 +552,14 @@ export function Dashboard() {
             uploadedContent:
               uploadedNote && !groundedLastTurn ? uploadedNote.text : undefined,
             docId: uploadedNote?.docId,
-            profileBriefing: buildProfileBriefing(profile, currentTopic ?? displayMessage),
+            profileBriefing:
+              [
+                buildProfileBriefing(profile, currentTopic ?? displayMessage),
+                masteryBriefing(learning, new Date()),
+              ]
+                .filter(Boolean)
+                .join("\n\n")
+                .slice(0, BRIEFING_MAX_CHARS) || undefined,
             modelId: model,
             extendedThinking,
             persona,
@@ -499,6 +567,8 @@ export function Dashboard() {
             timeBudget,
             learnerLevel,
             examPreset: examPreset ?? undefined,
+            hintLevel: requestedHint,
+            revisionConcepts: turnRevision,
             action,
             mode: effectiveMode,
             conceptPlan,
@@ -584,11 +654,35 @@ export function Dashboard() {
           });
         }
 
+        // Mastery evidence: each concept the teacher moved to "completed" or
+        // "misconception" this turn is an answer the student gave, credited
+        // with however much of the hint ladder they used on it.
+        if (!isQuizTurn) {
+          const conceptBefore = lessonState.concept_plan.find((concept) => concept.status === "current");
+          const hintUsed: HintLevel =
+            requestedHint ?? (hint && conceptBefore && hint.conceptId === conceptBefore.id ? hint.level : 0);
+          const evidence = evidenceFromPlanChange(lessonState.concept_plan, payload.concept_plan, {
+            // A revision files evidence under each concept's original topic.
+            topic: turnRevision ? "" : (currentTopic ?? displayMessage.slice(0, 90)),
+            kind: effectiveMode === "socratic" ? "socratic" : "teachback",
+            hintLevel: hintUsed,
+            at: new Date().toISOString(),
+          });
+          addEvidence(evidence);
+          if (evidence.length > 0) setHint(null);
+        }
+
+        // Teach-back ends once its concept is settled either way.
+        if (teachBackConceptId) {
+          const target = payload.concept_plan.find((concept) => concept.id === teachBackConceptId);
+          if (!target || target.status !== "current") setTeachBackConceptId(null);
+        }
+
         if (
           payload.concept_plan.length > 0 &&
           payload.concept_plan.every((concept) => concept.status === "completed")
         ) {
-          markLessonCompleted("concepts");
+          if (markLessonCompleted("concepts")) setSummaryOpen(true);
         }
 
         if (mastered && feynmanConceptId) {
@@ -645,6 +739,11 @@ export function Dashboard() {
       currentTopic,
       examPreset,
       markLessonCompleted,
+      learning,
+      hint,
+      teachBackConceptId,
+      revisionConcepts,
+      addEvidence,
     ],
   );
 
@@ -752,6 +851,10 @@ export function Dashboard() {
     setGroundedLastTurn(false);
     setHasStarted(false);
     setFeedbackState("hidden");
+    setHint(null);
+    setTeachBackConceptId(null);
+    setRevisionConcepts(null);
+    setSummaryOpen(false);
     lessonStartedAtRef.current = null;
     lessonCompletedRef.current = false;
   }
@@ -781,6 +884,7 @@ export function Dashboard() {
     if (!currentConcept) return;
 
     narrator.unlock();
+    setTeachBackConceptId(null);
     setIsFeynmanMode(true);
     setFeynmanConceptId(currentConcept.id);
     // Explicit mode: "feynman" here rather than relying on isFeynmanMode —
@@ -790,6 +894,54 @@ export function Dashboard() {
       displayMessage: `🧪 Feynman Mode: teach me "${currentConcept.label}"`,
       engineMessage: `I want to try Reverse Socratic (Feynman Crucible) Mode. Play a student with a plausible misconception about "${currentConcept.label}", and let me explain it back to you.`,
       mode: "feynman",
+    });
+  }
+
+  const currentConcept = lesson.concept_plan.find((concept) => concept.status === "current") ?? null;
+  const hintLevelNow: HintLevel =
+    hint && currentConcept && hint.conceptId === currentConcept.id ? hint.level : 0;
+  const nextHint = currentConcept ? nextHintLevel(hintLevelNow) : null;
+
+  function handleHint() {
+    if (!currentConcept || !nextHint) return;
+    narrator.unlock();
+    setHint({ conceptId: currentConcept.id, level: nextHint });
+    void runTeachTurn({
+      displayMessage: HINT_REQUEST_TEXT[nextHint],
+      engineMessage: `${HINT_REQUEST_TEXT[nextHint].replace(/^\S+\s/, "")} for the question you just asked me about "${currentConcept.label}".`,
+      hintLevel: nextHint,
+    });
+  }
+
+  function handleToggleTeachBack() {
+    if (teachBackConceptId) {
+      setTeachBackConceptId(null);
+      return;
+    }
+    if (!currentConcept) return;
+    narrator.unlock();
+    setIsFeynmanMode(false);
+    setFeynmanConceptId(null);
+    setTeachBackConceptId(currentConcept.id);
+    void runTeachTurn({
+      displayMessage: `🗣️ Let me explain "${currentConcept.label}" back to you`,
+      engineMessage: `I want to explain "${currentConcept.label}" back to you in my own words. Ask me to explain it, then check my explanation for gaps.`,
+      mode: "teachback",
+    });
+  }
+
+  const revisionDue = revisionFor(learning, learningNow);
+
+  function handleStartRevision() {
+    if (revisionDue.length === 0) return;
+    const labels = revisionDue.map((card) => card.label);
+    narrator.unlock();
+    setRevisionConcepts(labels);
+    setHasStarted(true);
+    void runTeachTurn({
+      displayMessage: `🔁 10-minute revision: ${labels.join(", ")}`,
+      engineMessage: "Start my 10-minute revision. Ask me one recall question at a time.",
+      revisionConcepts: labels,
     });
   }
 
@@ -811,7 +963,22 @@ export function Dashboard() {
    */
   function handleQuizCompleted(report: QuizReport) {
     track({ type: "quiz_completed", scorePercent: Math.round(report.scorePercent) });
-    markLessonCompleted("quiz");
+    const justCompleted = markLessonCompleted("quiz");
+    if (justCompleted && report.weakConceptIds.length === 0) setSummaryOpen(true);
+
+    const at = new Date().toISOString();
+    const quizTopic = revisionConcepts ? "" : (currentTopic ?? "");
+    const labelOf = (id: string) => lesson.concept_plan.find((concept) => concept.id === id)?.label;
+    const quizEvidence: Evidence[] = [
+      ...report.masteredConceptIds.map((id) => ({ id, correct: true })),
+      ...report.weakConceptIds.map((id) => ({ id, correct: false })),
+    ].flatMap(({ id, correct }) => {
+      const label = labelOf(id);
+      return label
+        ? [{ key: conceptKey(label), label, topic: quizTopic, kind: "quiz" as const, correct, hintLevel: 0 as const, at }]
+        : [];
+    });
+    addEvidence(quizEvidence);
     const summary = buildQuizSummarySpeech(report);
     setMessages((prev) => [
       ...prev,
@@ -943,6 +1110,9 @@ export function Dashboard() {
 
   function handleResetProfile() {
     clearProfile();
+    clearLearningState();
+    setLearning(emptyLearningState());
+    setHint(null);
     const fresh = loadProfile();
     setProfile(fresh);
     setCurrentTopic(null);
@@ -973,6 +1143,28 @@ export function Dashboard() {
 
   const canToggleFeynmanMode = lesson.concept_plan.some((concept) => concept.status === "current");
 
+  const streak = streakFor(learning, learningNow);
+  const masteryById: Record<string, MasteryView | null> = Object.fromEntries(
+    lesson.concept_plan.map((concept) => [concept.id, masteryFor(learning, concept.label, learningNow)]),
+  );
+  // Hints only make sense once the teacher has asked something about a concept.
+  const hasTeacherQuestion = messages.some((message) => message.role === "teacher");
+  const learningActions: LearningActions = {
+    hintLabel:
+      nextHint && hasTeacherQuestion && !isFeynmanMode ? HINT_BUTTON_LABEL[nextHint] : null,
+    hintsUsed: hintLevelNow,
+    onHint: handleHint,
+    teachBackActive: teachBackConceptId !== null,
+    canTeachBack: currentConcept !== null && !isFeynmanMode && !revisionConcepts,
+    onToggleTeachBack: handleToggleTeachBack,
+  };
+  const summary = buildLessonSummary(
+    currentTopic ?? "This lesson",
+    lesson.concept_plan,
+    learning,
+    learningNow,
+  );
+
   if (!hasStarted) {
     return (
       <Landing
@@ -985,6 +1177,9 @@ export function Dashboard() {
         onUpload={handleUpload}
         onClearUpload={() => setUploadedNote(null)}
         onStart={handleStart}
+        revisionItems={revisionDue.map(({ key, label, topic }) => ({ key, label, topic }))}
+        streak={streak}
+        onStartRevision={handleStartRevision}
       />
     );
   }
@@ -1011,6 +1206,25 @@ export function Dashboard() {
           </span>
         )}
         <div className="ml-auto flex items-center gap-2">
+        {streak > 0 && (
+          <span
+            className="flex items-center gap-1 text-xs font-medium text-orange-300"
+            aria-label={`${streak}-day learning streak`}
+          >
+            <Flame size={14} aria-hidden="true" />
+            {streak}
+          </span>
+        )}
+        {currentTopic && lesson.concept_plan.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setSummaryOpen(true)}
+            className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium text-slate-300 transition hover:bg-white/5 hover:text-white focus-visible:outline-2 focus-visible:outline-indigo-400"
+          >
+            <ClipboardList size={13} aria-hidden="true" />
+            Summary
+          </button>
+        )}
         {feedbackState === "hidden" && currentTopic && (
           <button
             type="button"
@@ -1088,6 +1302,8 @@ export function Dashboard() {
             uploadError={uploadError}
             uploadedFileName={uploadedNote?.fileName ?? null}
             onClearUpload={() => setUploadedNote(null)}
+            mastery={masteryById}
+            learningActions={learningActions}
             notices={
               <>
                 {failedTurn && (
@@ -1121,6 +1337,8 @@ export function Dashboard() {
           />
         </div>
       </main>
+
+      <LessonSummaryDialog summary={summary} open={summaryOpen} onClose={() => setSummaryOpen(false)} />
 
       <canvas ref={canvasRef} className="hidden" aria-hidden="true" />
     </div>

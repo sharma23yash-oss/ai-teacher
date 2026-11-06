@@ -84,6 +84,8 @@ export const teachRequestSchema = z.object({
   gestureSignal: z.enum(GESTURE_SIGNALS).optional(),
   lessonState: lessonStateSchema.optional(),
   examPreset: z.enum(EXAM_PRESETS).optional(),
+  hintLevel: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional(),
+  revisionConcepts: z.array(nonEmptyTrimmed(120)).min(1).max(10).optional(),
 });
 
 export type TeachRequestInput = z.infer<typeof teachRequestSchema>;

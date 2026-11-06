@@ -802,7 +802,10 @@ export function isExamPreset(value: unknown): value is ExamPreset {
   return typeof value === "string" && (EXAM_PRESETS as readonly string[]).includes(value);
 }
 
-export const TEACH_MODES = ["socratic", "feynman"] as const;
+// socratic: the normal teaching loop. feynman: the AI plays a confused
+// student and the human teaches it. teachback: the human explains the current
+// concept in their own words and the teacher probes the gaps.
+export const TEACH_MODES = ["socratic", "feynman", "teachback"] as const;
 
 export type TeachMode = (typeof TEACH_MODES)[number];
 
@@ -853,6 +856,12 @@ export interface TeachRequestBody {
   lessonState?: LessonState;
   // Exam prep preset (NISM, CFA, GATE). Omitted for a normal lesson.
   examPreset?: ExamPreset;
+  // Set on a hint request: which rung of the hint ladder to give
+  // (1 nudge, 2 hint, 3 worked step, 4 full solution). See lib/learning/hint-ladder.ts.
+  hintLevel?: 1 | 2 | 3 | 4;
+  // Set for a 10-minute spaced-repetition revision: the exact concepts due,
+  // which become the concept_plan instead of a freshly planned lesson.
+  revisionConcepts?: string[];
 }
 
 /** Which model actually produced the turn — may differ from the one requested. */

@@ -22,6 +22,7 @@ import {
 import { SCHEMA_PROMPT_BLOCK } from "./providers/lesson-schema";
 import type { NeutralMessage } from "./providers/shared";
 import { buildCanaryInstruction } from "./security/canary";
+import { HINT_INSTRUCTION, type HintLevel } from "./learning/hint-ladder";
 
 function timeBudgetOption(value: TimeBudget) {
   return (
@@ -201,6 +202,33 @@ Write ALL spoken text in Roman/Latin letters. Never emit a single Devanagari cha
 Write ALL spoken text in ${scriptName}. Never romanize or transliterate it into Latin letters — the neural voice speaking your words is trained on ${scriptName} and reads Latin text as unrelated noise. Established English technical terms (for example "Python", "variable", "algorithm") may stay in English where a native speaker would naturally use them, but every piece of conversational connective tissue must be in ${scriptName}. Place a comma after each clause and a full stop after each sentence so the voice breathes naturally.`;
 }
 
+// Teach-back: the student explains the current concept in their own words and
+// the teacher hunts for gaps. Unlike Feynman mode the AI stays the teacher; it
+// is an overlay on PEDAGOGY_SYSTEM_PROMPT, so the normal concept_plan rules
+// (and the client's mastery tracking of status changes) still apply.
+export const TEACHBACK_INSTRUCTION = `Teach-Back Mode is ON for the concept currently marked "current". The student is explaining that concept back to you in their own words. Do NOT re-teach it up front. Each turn:
+1. If the student has not explained yet, ask them to explain the concept in their own words as if to a friend, in two or three sentences, with one example.
+2. When they explain, compare it with a complete, correct explanation. Name specifically what they got right (one short sentence), then find the single most important gap or misconception: a missing condition, a wrong cause-effect link, a confused term, or an example that does not fit.
+3. Ask ONE targeted follow-up question aimed at exactly that gap. Do not give the answer away in the question.
+4. When their explanation (including answers to your follow-ups) is complete and correct, say so specifically, set that concept's status to "completed" and the next locked concept to "current".
+5. If their explanation reveals a real misconception (not just a missing detail), set that concept's status to "misconception", name the wrong idea plainly and kindly, and ask them to try explaining again after one short correction.`;
+
+export interface TurnExtras {
+  /** Rung of the hint ladder the student asked for this turn. */
+  hintLevel?: Exclude<HintLevel, 0>;
+  /** Concepts due for spaced-repetition review: replaces the planned syllabus. */
+  revisionConcepts?: string[];
+  /** Known misconceptions matching this lesson (see lib/learning/misconceptions.ts). */
+  diagnostics?: string;
+}
+
+function buildRevisionInstruction(concepts: string[]): string {
+  const list = concepts.map((label, i) => `${i + 1}. "${label}"`).join("\n");
+  return `Revision Mode (spaced repetition, about 10 minutes). This is NOT a new lesson. The student is reviewing concepts they learned earlier. Your concept_plan must contain exactly these ${concepts.length} concepts, with these exact labels, in this order (this overrides the usual concept count):
+${list}
+For each concept in turn: ask ONE retrieval question that makes the student recall it (no explanation first). If they answer correctly without help, confirm briefly, set it to "completed" and move to the next. If they are wrong or unsure, set it to "misconception", give a short, clear correction, then ask one easier check question before moving on. Keep explanations short: this is practice, not teaching.`;
+}
+
 export function buildSystemInstruction(
   persona: TeacherPersona,
   language: Language,
@@ -217,6 +245,7 @@ export function buildSystemInstruction(
   // (tests, the self-test route) don't have to mint one just to compile.
   canaryToken?: string,
   examPreset?: ExamPreset,
+  extras: TurnExtras = {},
 ): string {
   const basePrompt = mode === "feynman" ? FEYNMAN_SYSTEM_PROMPT : PEDAGOGY_SYSTEM_PROMPT;
   const overlay = PERSONA_INSTRUCTIONS[persona];
@@ -228,8 +257,24 @@ export function buildSystemInstruction(
 
   instruction = `${instruction}\n\nLearner Level: ${LEARNER_LEVEL_INSTRUCTIONS[learnerLevel] ?? LEARNER_LEVEL_INSTRUCTIONS.beginner}`;
 
-  const budget = timeBudgetOption(timeBudget);
-  instruction = `${instruction}\n\nTime Constraint: The student has requested a ${budget.label}. ${budget.shape} Your concept_plan must contain ${budget.conceptCount} micro-concepts — no more and no fewer. Adjust the depth of your explanations, the complexity of your Socratic questions, and the pacing of the Concept Skill Tree to match.`;
+  if (extras.revisionConcepts && extras.revisionConcepts.length > 0) {
+    instruction = `${instruction}\n\n${buildRevisionInstruction(extras.revisionConcepts)}`;
+  } else {
+    const budget = timeBudgetOption(timeBudget);
+    instruction = `${instruction}\n\nTime Constraint: The student has requested a ${budget.label}. ${budget.shape} Your concept_plan must contain ${budget.conceptCount} micro-concepts — no more and no fewer. Adjust the depth of your explanations, the complexity of your Socratic questions, and the pacing of the Concept Skill Tree to match.`;
+  }
+
+  if (mode === "teachback") {
+    instruction = `${instruction}\n\n${TEACHBACK_INSTRUCTION}`;
+  }
+
+  if (extras.diagnostics && mode !== "feynman") {
+    instruction = `${instruction}\n\n${extras.diagnostics}`;
+  }
+
+  if (extras.hintLevel) {
+    instruction = `${instruction}\n\nHint Ladder: ${HINT_INSTRUCTION[extras.hintLevel]}`;
+  }
 
   if (examPreset) {
     const exam = EXAM_PRESET_META[examPreset];
