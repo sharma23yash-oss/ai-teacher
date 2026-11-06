@@ -122,6 +122,7 @@ export async function POST(request: Request) {
           model.jsonMode,
           teachMode,
           canaryToken,
+          body.examPreset,
         ),
     });
 

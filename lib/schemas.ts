@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   AI_PROVIDERS,
+  EXAM_PRESETS,
   GESTURE_SIGNALS,
   LANGUAGES,
   LEARNER_LEVELS,
@@ -82,6 +83,7 @@ export const teachRequestSchema = z.object({
   webcamFrame: nonEmptyTrimmed(WEBCAM_FRAME_MAX_CHARS).optional(),
   gestureSignal: z.enum(GESTURE_SIGNALS).optional(),
   lessonState: lessonStateSchema.optional(),
+  examPreset: z.enum(EXAM_PRESETS).optional(),
 });
 
 export type TeachRequestInput = z.infer<typeof teachRequestSchema>;

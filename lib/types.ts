@@ -747,6 +747,61 @@ export type TeachAction = "teach" | "take_quiz";
 // "feynman" inverts the usual teaching direction: the AI plays a student
 // holding a plausible misconception, and the human explains it back — see
 // FEYNMAN_SYSTEM_PROMPT in lib/pedagogy-engine.ts.
+// ---------------------------------------------------------------------------
+// Exam prep presets
+// ---------------------------------------------------------------------------
+// A niche mode for students preparing for a specific exam from their own
+// material. The preset changes how the engine teaches (exam vocabulary,
+// question formats, marking rules) and leans on the uploaded PDF as the
+// syllabus. Without a PDF it still works, but says it is teaching from
+// general knowledge.
+
+export const EXAM_PRESETS = ["nism", "cfa", "gate"] as const;
+
+export type ExamPreset = (typeof EXAM_PRESETS)[number];
+
+export interface ExamPresetMeta {
+  label: string;
+  fullName: string;
+  /** Shown under the chip on the landing screen. */
+  blurb: string;
+  /** What to suggest uploading. */
+  uploadHint: string;
+  /** Appended to the system prompt. */
+  instruction: string;
+}
+
+export const EXAM_PRESET_META: Record<ExamPreset, ExamPresetMeta> = {
+  nism: {
+    label: "NISM",
+    fullName: "NISM certification (SEBI-mandated securities markets exams)",
+    blurb: "Regulations, products and procedures, drilled as MCQs",
+    uploadHint: "Upload the NISM workbook PDF for your series",
+    instruction:
+      "The student is preparing for a NISM certification exam (India's SEBI-mandated securities markets certifications). These are 100-question, single-correct MCQ tests with negative marking of 25% per wrong answer and a 50-60% pass mark. Emphasise exact regulatory facts that the workbook states: SEBI regulations, definitions, limits, timelines, fees and procedural steps. When you quiz, write questions in NISM's style: one correct option, three plausible distractors that differ on a number, a timeline or a single word of the rule. After each concept, give one memory hook for the exact figure. Remind the student when guessing is not worth the negative mark.",
+  },
+  cfa: {
+    label: "CFA",
+    fullName: "CFA Program (Level I-III)",
+    blurb: "Learning outcome statements, formulas and vignettes",
+    uploadHint: "Upload the curriculum reading or your notes PDF",
+    instruction:
+      "The student is preparing for the CFA Program exam. Organise each concept around the Learning Outcome Statement it serves, and use the command words the curriculum uses (calculate, explain, compare, evaluate). Show every formula with a worked numerical example, and flag the common calculator and sign errors. When you quiz, use the CFA format: three options (A, B, C) with no negative marking, and for Level II-style practice a short vignette followed by the question. Point out which ethics standard or reading a fact comes from when the material says so.",
+  },
+  gate: {
+    label: "GATE",
+    fullName: "GATE (Graduate Aptitude Test in Engineering)",
+    blurb: "Concepts to numericals, in MCQ, MSQ and NAT formats",
+    uploadHint: "Upload your subject notes or previous-year paper PDF",
+    instruction:
+      "The student is preparing for GATE. Move quickly from the concept to solving numerical problems, and show the shortest exam-time method alongside the full derivation. When you quiz, mix GATE's three formats: MCQ (one correct answer, negative marking of one-third of the marks), MSQ (one or more correct answers, no negative marking) and NAT (type a numerical answer, no options, no negative marking). Label each question with its format and its marks (1 or 2). Point out common unit and approximation traps, and say which topics appear most often in previous papers when the material indicates it.",
+  },
+};
+
+export function isExamPreset(value: unknown): value is ExamPreset {
+  return typeof value === "string" && (EXAM_PRESETS as readonly string[]).includes(value);
+}
+
 export const TEACH_MODES = ["socratic", "feynman"] as const;
 
 export type TeachMode = (typeof TEACH_MODES)[number];
@@ -796,6 +851,8 @@ export interface TeachRequestBody {
   // inventing a new one — this is what keeps a failover from resetting the
   // student's progress.
   lessonState?: LessonState;
+  // Exam prep preset (NISM, CFA, GATE). Omitted for a normal lesson.
+  examPreset?: ExamPreset;
 }
 
 /** Which model actually produced the turn — may differ from the one requested. */

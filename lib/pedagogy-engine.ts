@@ -5,7 +5,9 @@ import {
   LANGUAGE_META,
   LEARNER_LEVEL_INSTRUCTIONS,
   TIME_BUDGET_OPTIONS,
+  EXAM_PRESET_META,
   type ChatMessage,
+  type ExamPreset,
   type ConceptNode,
   type GestureSignal,
   type JsonMode,
@@ -214,6 +216,7 @@ export function buildSystemInstruction(
   // generateLessonWithFailover) but defaulted so existing/ad-hoc callers
   // (tests, the self-test route) don't have to mint one just to compile.
   canaryToken?: string,
+  examPreset?: ExamPreset,
 ): string {
   const basePrompt = mode === "feynman" ? FEYNMAN_SYSTEM_PROMPT : PEDAGOGY_SYSTEM_PROMPT;
   const overlay = PERSONA_INSTRUCTIONS[persona];
@@ -227,6 +230,11 @@ export function buildSystemInstruction(
 
   const budget = timeBudgetOption(timeBudget);
   instruction = `${instruction}\n\nTime Constraint: The student has requested a ${budget.label}. ${budget.shape} Your concept_plan must contain ${budget.conceptCount} micro-concepts — no more and no fewer. Adjust the depth of your explanations, the complexity of your Socratic questions, and the pacing of the Concept Skill Tree to match.`;
+
+  if (examPreset) {
+    const exam = EXAM_PRESET_META[examPreset];
+    instruction = `${instruction}\n\nExam Prep Mode — ${exam.fullName}: ${exam.instruction} When study material has been provided, treat it as the syllabus: build the concept_plan from its chapters and headings, cite it when you state a fact, and never contradict it. When no material has been provided, say once at the start that you are teaching from general knowledge and suggest uploading the official PDF.`;
+  }
 
   if (hasWebcamFrame) {
     instruction = `${instruction}\n\n${VIDEO_CALL_INSTRUCTION}`;
