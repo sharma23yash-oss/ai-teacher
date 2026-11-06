@@ -3,16 +3,23 @@
 import { useEffect, useState } from "react";
 import { BrainCog } from "lucide-react";
 import {
-  AI_PROVIDERS,
-  PROVIDER_ENV_VARS,
+  MODEL_TIERS,
+  MODEL_TIER_META,
   PROVIDER_LABELS,
   TEACHER_MODELS,
   TEACHER_MODEL_LIST,
   type AiProvider,
+  type ModelTier,
   type ProvidersResponseBody,
   type TeacherModelId,
 } from "@/lib/types";
 
+/**
+ * Three tiers instead of nine model names. Picking a tier selects the first
+ * model in it whose provider has a key on the server (Gemini first, since it
+ * is the only one that can read webcam frames). If that provider fails
+ * mid-lesson, the teach route's failover still takes over.
+ */
 export function ModelSelector({
   model,
   onModelChange,
@@ -24,8 +31,8 @@ export function ModelSelector({
   extendedThinking: boolean;
   onExtendedThinkingChange: (enabled: boolean) => void;
 }) {
-  // Which providers actually have a key on the server. Until this resolves,
-  // every option stays enabled so the control is never briefly unusable.
+  // Which providers have a key on the server. Until this resolves every tier
+  // stays enabled so the control is never briefly unusable.
   const [configured, setConfigured] = useState<AiProvider[] | null>(null);
 
   useEffect(() => {
@@ -36,54 +43,56 @@ export function ModelSelector({
         if (!cancelled && data) setConfigured(data.configured);
       })
       .catch(() => {
-        // Leave everything selectable rather than locking the picker on a
-        // transient failure — the teach route reports a missing key anyway.
+        // Leave everything selectable; the teach route reports a missing key anyway.
       });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const selected = TEACHER_MODELS[model];
-  const thinkingSupported = selected.supportsThinking;
   const isConfigured = (provider: AiProvider) =>
     configured === null || configured.includes(provider);
 
+  const modelsInTier = (tier: ModelTier) =>
+    TEACHER_MODEL_LIST.filter((entry) => entry.tier === tier);
+
+  const pickModelForTier = (tier: ModelTier): TeacherModelId | null =>
+    modelsInTier(tier).find((entry) => isConfigured(entry.provider))?.id ?? null;
+
+  const selected = TEACHER_MODELS[model];
+  const thinkingSupported = selected.supportsThinking;
+
   return (
     <div className="flex flex-wrap items-center gap-3 text-xs">
-      <select
-        value={model}
-        onChange={(e) => onModelChange(e.target.value as TeacherModelId)}
-        title="Teaching model"
-        className="rounded-md border border-white/15 bg-white/5 px-2 py-1.5 text-slate-300 outline-none focus:border-indigo-400"
+      <div
+        role="radiogroup"
+        aria-label="Teaching model speed"
+        className="flex gap-1 rounded-lg bg-white/5 p-1"
       >
-        {AI_PROVIDERS.map((provider) => {
-          const available = isConfigured(provider);
+        {MODEL_TIERS.map((tier) => {
+          const target = pickModelForTier(tier);
+          const isActive = selected.tier === tier;
+          const providers = modelsInTier(tier)
+            .map((entry) => `${PROVIDER_LABELS[entry.provider]}: ${entry.label}`)
+            .join("\n");
           return (
-            <optgroup
-              key={provider}
-              label={
-                available
-                  ? PROVIDER_LABELS[provider]
-                  : `${PROVIDER_LABELS[provider]} — set ${PROVIDER_ENV_VARS[provider]}`
-              }
+            <button
+              key={tier}
+              type="button"
+              role="radio"
+              aria-checked={isActive}
+              disabled={!target}
+              onClick={() => target && onModelChange(target)}
+              title={`${MODEL_TIER_META[tier].hint}\n\nRuns on:\n${providers}`}
+              className={`rounded-md px-3 py-1.5 font-medium transition focus-visible:outline-2 focus-visible:outline-indigo-400 disabled:cursor-not-allowed disabled:opacity-40 ${
+                isActive ? "bg-indigo-500 text-white" : "text-slate-300 hover:text-white"
+              }`}
             >
-              {TEACHER_MODEL_LIST.filter((entry) => entry.provider === provider).map(
-                (entry) => (
-                  <option
-                    key={entry.id}
-                    value={entry.id}
-                    disabled={!available}
-                    className="bg-slate-900"
-                  >
-                    {entry.label}
-                  </option>
-                ),
-              )}
-            </optgroup>
+              {MODEL_TIER_META[tier].label}
+            </button>
           );
         })}
-      </select>
+      </div>
 
       <button
         type="button"
@@ -93,14 +102,15 @@ export function ModelSelector({
         onClick={() => onExtendedThinkingChange(!extendedThinking)}
         title={
           thinkingSupported
-            ? "Enable Extended Thinking"
-            : `Extended Thinking isn't available on ${selected.label}`
+            ? "Let the model think longer before answering"
+            : `Extended Thinking isn't available on the ${MODEL_TIER_META[selected.tier].label} tier`
         }
-        className="flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-40"
+        className="flex items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-indigo-400 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        <BrainCog size={14} className="text-slate-400" />
-        <span className="text-slate-400">Extended Thinking</span>
+        <BrainCog size={14} className="text-slate-300" aria-hidden="true" />
+        <span className="text-slate-300">Extended Thinking</span>
         <span
+          aria-hidden="true"
           className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
             extendedThinking && thinkingSupported ? "bg-indigo-500" : "bg-white/15"
           }`}

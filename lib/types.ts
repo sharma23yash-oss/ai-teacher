@@ -127,9 +127,25 @@ export const PROVIDER_ENV_VARS: Record<AiProvider, string> = {
  */
 export type JsonMode = "schema" | "json";
 
+/**
+ * What the student picks. Raw model names mean nothing to a learner, so the
+ * picker shows three speed/depth tiers; the provider and model behind each
+ * tier only appear in its tooltip.
+ */
+export const MODEL_TIERS = ["fast", "balanced", "deep"] as const;
+
+export type ModelTier = (typeof MODEL_TIERS)[number];
+
+export const MODEL_TIER_META: Record<ModelTier, { label: string; hint: string }> = {
+  fast: { label: "Fast", hint: "Quickest replies, lighter explanations" },
+  balanced: { label: "Balanced", hint: "Good depth at a comfortable speed" },
+  deep: { label: "Deep", hint: "Most thorough reasoning, slower replies" },
+};
+
 export interface TeacherModel {
   id: TeacherModelId;
   provider: AiProvider;
+  tier: ModelTier;
   /** The identifier the provider's own API expects. */
   modelName: string;
   label: string;
@@ -164,6 +180,7 @@ export const TEACHER_MODELS: Record<TeacherModelId, TeacherModel> = {
   "gemini-3.5-flash-lite": {
     id: "gemini-3.5-flash-lite",
     provider: "gemini",
+    tier: "fast",
     modelName: "gemini-3.5-flash-lite",
     label: "Gemini 3.5 Flash Lite (Fastest)",
     // The flash-lite tier doesn't support extended thinking.
@@ -174,6 +191,7 @@ export const TEACHER_MODELS: Record<TeacherModelId, TeacherModel> = {
   "gemini-3.6-flash": {
     id: "gemini-3.6-flash",
     provider: "gemini",
+    tier: "balanced",
     modelName: "gemini-3.6-flash",
     label: "Gemini 3.6 Flash (Balanced)",
     supportsThinking: true,
@@ -183,6 +201,7 @@ export const TEACHER_MODELS: Record<TeacherModelId, TeacherModel> = {
   "gemini-3.1-pro-preview": {
     id: "gemini-3.1-pro-preview",
     provider: "gemini",
+    tier: "deep",
     modelName: "gemini-3.1-pro-preview",
     label: "Gemini 3.1 Pro Preview (Deep Research)",
     supportsThinking: true,
@@ -192,6 +211,7 @@ export const TEACHER_MODELS: Record<TeacherModelId, TeacherModel> = {
   "groq-qwen3.8-27b": {
     id: "groq-qwen3.8-27b",
     provider: "groq",
+    tier: "balanced",
     modelName: "qwen/qwen3.8-27b",
     label: "Qwen3.8 27B (Groq)",
     supportsThinking: false,
@@ -202,6 +222,7 @@ export const TEACHER_MODELS: Record<TeacherModelId, TeacherModel> = {
   "groq-gpt-oss-20b": {
     id: "groq-gpt-oss-20b",
     provider: "groq",
+    tier: "fast",
     modelName: "openai/gpt-oss-20b",
     label: "GPT-OSS 20B Instant (Groq)",
     supportsThinking: false,
@@ -211,6 +232,7 @@ export const TEACHER_MODELS: Record<TeacherModelId, TeacherModel> = {
   "groq-gpt-oss-120b": {
     id: "groq-gpt-oss-120b",
     provider: "groq",
+    tier: "deep",
     modelName: "openai/gpt-oss-120b",
     label: "GPT-OSS 120B (Groq)",
     supportsThinking: false,
@@ -220,6 +242,7 @@ export const TEACHER_MODELS: Record<TeacherModelId, TeacherModel> = {
   "cohere-command-a": {
     id: "cohere-command-a",
     provider: "cohere",
+    tier: "deep",
     modelName: "command-a-03-2025",
     label: "Command A (Cohere)",
     supportsThinking: false,
@@ -229,6 +252,7 @@ export const TEACHER_MODELS: Record<TeacherModelId, TeacherModel> = {
   "cohere-command-r-plus": {
     id: "cohere-command-r-plus",
     provider: "cohere",
+    tier: "balanced",
     modelName: "command-r-plus-08-2024",
     label: "Command R+ (Cohere)",
     supportsThinking: false,
@@ -238,6 +262,7 @@ export const TEACHER_MODELS: Record<TeacherModelId, TeacherModel> = {
   "cohere-command-r": {
     id: "cohere-command-r",
     provider: "cohere",
+    tier: "fast",
     modelName: "command-r-08-2024",
     label: "Command R (Cohere)",
     supportsThinking: false,
