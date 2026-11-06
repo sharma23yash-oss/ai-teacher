@@ -148,7 +148,6 @@ export function Landing({
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={handleKeyDown}
               rows={3}
-              autoFocus
               placeholder={
                 exam
                   ? `What do you want to revise for ${exam.label}? e.g. "${examPlaceholder(examPreset!)}"`

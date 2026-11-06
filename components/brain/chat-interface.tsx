@@ -124,7 +124,7 @@ export function ChatInterface({
   const [isRefining, setIsRefining] = useState(false);
   const [refineError, setRefineError] = useState<string | null>(null);
   const [documentNotices, setDocumentNotices] = useState<DocumentNotice[]>([]);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const logRef = useRef<HTMLDivElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
   // Text already in the input when the mic was activated, so live results
   // extend it instead of clobbering whatever the student had already typed.
@@ -173,7 +173,10 @@ export function ChatInterface({
   }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Scroll only the conversation itself. scrollIntoView would also scroll
+    // the page on phones, where the panes are stacked, and hide the stage.
+    const log = logRef.current;
+    log?.scrollTo({ top: log.scrollHeight, behavior: "smooth" });
   }, [messages, isThinking]);
 
   // The avatar switches to its listening pose while the mic is live.
@@ -270,6 +273,7 @@ export function ChatInterface({
   return (
     <div className="flex h-full flex-col">
       <div
+        ref={logRef}
         role="log"
         aria-label="Lesson conversation"
         aria-live="polite"
@@ -348,7 +352,6 @@ export function ChatInterface({
             </div>
           </div>
         )}
-        <div ref={bottomRef} />
       </div>
 
       <div className="border-t border-slate-200 p-3">

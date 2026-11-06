@@ -1032,8 +1032,10 @@ export function Dashboard() {
         </div>
       </header>
 
-      <main className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-2">
-        <div className="min-h-0">
+      {/* Phones: the two panes stack and the page scrolls, each with a usable
+          height. md and up: side by side, each pane scrolling on its own. */}
+      <main className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto md:grid-cols-2 md:overflow-hidden">
+        <div className="h-[60dvh] min-h-0 md:h-auto">
           <StagePanel
             isFeynmanMode={isFeynmanMode}
             onToggleFeynmanMode={handleToggleFeynmanMode}
@@ -1066,7 +1068,7 @@ export function Dashboard() {
             lastGestureSignalId={gesture.lastSignalId}
           />
         </div>
-        <div className="min-h-0 border-t border-white/10 md:border-t-0 md:border-l">
+        <div className="h-[85dvh] min-h-0 border-t border-white/10 md:h-auto md:border-t-0 md:border-l">
           <BrainPanel
             concepts={lesson.concept_plan}
             celebratingConceptId={celebratingConceptId}
