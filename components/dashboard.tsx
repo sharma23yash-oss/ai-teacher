@@ -42,6 +42,12 @@ import type { AvatarState } from "./stage/avatar-face";
 import { StagePanel } from "./stage/stage-panel";
 import { BrainPanel } from "./brain/brain-panel";
 
+// Thrown only for messages handleUpload has itself written (a network
+// failure, an unreadable response, or the server's own fail() string) —
+// never for a raw exception whose text hasn't been vetted as safe/clear to
+// show a student. See the catch block in handleUpload for how this is used.
+class UploadUserFacingError extends Error {}
+
 interface UploadedNote {
   fileName: string;
   /** Full extracted text — the self-healing fallback if the index is lost. */
@@ -720,9 +726,27 @@ export function Dashboard() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
-      const data = (await res.json()) as UploadResponseBody;
-      if (!data.ok) throw new Error(data.error);
+
+      let res: Response;
+      try {
+        res = await fetch("/api/upload", { method: "POST", body: formData });
+      } catch (error) {
+        console.error("Upload request failed to reach the server:", error);
+        throw new UploadUserFacingError(
+          "Couldn't reach the server. Check your connection and try again.",
+        );
+      }
+
+      let data: UploadResponseBody;
+      try {
+        data = (await res.json()) as UploadResponseBody;
+      } catch (error) {
+        console.error("Upload response wasn't valid JSON:", error);
+        throw new UploadUserFacingError("The server had trouble with that file. Please try again.");
+      }
+
+      if (!data.ok) throw new UploadUserFacingError(data.error);
+
       setUploadedNote({
         fileName: data.fileName,
         text: data.text,
@@ -733,7 +757,17 @@ export function Dashboard() {
       setGroundedLastTurn(false);
       setGroundedOn([]);
     } catch (error) {
-      setUploadError(error instanceof Error ? error.message : "Failed to upload that file.");
+      // Only ever surface a message written above (a network failure, an
+      // unreadable response, or the server's own fail() string) — anything
+      // else is an exception we didn't anticipate (a browser quirk, a
+      // library throwing a shape we didn't expect), so it gets one clear,
+      // generic line instead of a raw, confusing exception message.
+      if (error instanceof UploadUserFacingError) {
+        setUploadError(error.message);
+      } else {
+        console.error("Unexpected upload error:", error);
+        setUploadError("Couldn't upload that file. Please try again.");
+      }
     } finally {
       setIsUploading(false);
     }

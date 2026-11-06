@@ -15,11 +15,17 @@ const UNSUPPORTED_MESSAGE =
   "Supported formats are PDF, Word (.docx), PowerPoint (.pptx), and plain text (.txt, .md). " +
   "Legacy .doc and .ppt files need to be saved as .docx or .pptx first.";
 
+// Never shown unless something truly unanticipated happens (a browser quirk,
+// a library throwing a shape we didn't expect) — every expected failure path
+// below returns its own specific, actionable fail() message instead.
+const UNEXPECTED_FAILURE_MESSAGE =
+  "Something went wrong reading that file. Please try again, or try a different file.";
+
 function fail(error: string, status: number) {
   return NextResponse.json<UploadResponseBody>({ ok: false, error }, { status });
 }
 
-export async function POST(request: Request) {
+async function handleUpload(request: Request): Promise<Response> {
   let formData: FormData;
   try {
     formData = await request.formData();
@@ -48,7 +54,13 @@ export async function POST(request: Request) {
     return fail(UNSUPPORTED_MESSAGE, 415);
   }
 
-  const buffer = new Uint8Array(await file.arrayBuffer());
+  let buffer: Uint8Array;
+  try {
+    buffer = new Uint8Array(await file.arrayBuffer());
+  } catch (error) {
+    console.error("/api/upload: couldn't read the uploaded file's bytes:", error);
+    return fail("Couldn't read that file's contents. Please try again.", 400);
+  }
 
   // The name and browser-supplied MIME type that detectKind() just used are
   // both entirely client-controlled — a renamed or mislabeled file sails
@@ -106,5 +118,21 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("/api/upload indexing failed:", error);
     return fail("Read the file, but couldn't index it for retrieval. Please try again.", 500);
+  }
+}
+
+// A single outer boundary around the whole route: whatever goes wrong above —
+// including anything not already caught by a more specific try/catch — this
+// guarantees the client only ever receives a clean, valid JSON
+// { ok: false, error } body with a message a student can act on. Without it,
+// an unanticipated exception could otherwise escape as an unhandled server
+// error (a non-JSON response), which would then surface client-side as a
+// confusing, unrelated parse failure instead of a clear upload error.
+export async function POST(request: Request): Promise<Response> {
+  try {
+    return await handleUpload(request);
+  } catch (error) {
+    console.error("/api/upload: unexpected failure:", error);
+    return fail(UNEXPECTED_FAILURE_MESSAGE, 500);
   }
 }
