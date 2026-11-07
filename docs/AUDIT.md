@@ -26,6 +26,7 @@ _Last updated: 2026-11-06, at the start of the "best-in-class" upgrade. Read thi
 | `POST /api/upload` | Extracts text from PDF / DOCX / PPTX / TXT / MD (4.5 MB max), chunks and indexes it, returns a `docId` | 10 |
 | `POST /api/tts` | Neural text-to-speech for the teacher's voice | 30 |
 | `POST /api/refine` | Rewrites a rough student prompt into a clearer one | 20 |
+| `POST /api/course` | Course tools: `summary` (chapter summary with page citations), `questions` (generator with difficulty, type and explanations), `grade` (marking-scheme feedback on a descriptive answer) | 20 |
 | `GET /api/providers` | Which providers have a key configured (no key values) | 60 |
 | `POST /api/metrics` | Anonymous usage events (5 types), aggregated on write | 30 |
 
@@ -57,7 +58,7 @@ Pages: `/` (landing → lesson), `/metrics` (owner dashboard, `METRICS_TOKEN`), 
 | Quiz + report card | Multiple-choice quiz, report card, weak concepts demoted and re-taught at once (`quiz-stage.tsx`, `dashboard.tsx` `handleQuizCompleted`) | Phase 2 #5 mastery updates come from here |
 | Feynman mode | AI plays a confused student and the human explains (`FEYNMAN_SYSTEM_PROMPT`) | Phase 2 #7 teach-back is a separate mode on purpose: in Feynman the AI is the student; in teach-back the AI stays the teacher and grades the student's explanation, so the normal concept-plan rules and mastery tracking still apply |
 | Learner profile | Per-topic scores, weak/completed concepts, briefing sent to the model | Phase 2 #5 and #8 should extend `lib/learner-profile.ts` |
-| RAG | Chunking by heading, embeddings + lexical hybrid retrieval, "grounded on" trace in the UI, retrieval on every turn | Phase 3 #11 — missing chapter summaries, Q&A generation, **page** citations |
+| RAG | Chunking by heading with page/slide ranges, embeddings + lexical hybrid retrieval, "grounded on" trace with page locators, chapter outline, chapter summaries and question generation with page citations (Phase 3) | Shared index storage |
 | Exam prep | NISM / CFA / GATE presets with format and marking rules in the prompt (`EXAM_PRESET_META` in `lib/types.ts`) | Phase 3 #12 — needs NISM Series XV specifically, board exams, and syllabus maps with weightage |
 | Metrics | Lessons started/completed, quiz scores, languages, session length, feedback, tiers, exam presets; `/metrics` with token | Phase 4 #14–15 — missing anonymous ID, returns, pre/post test, cost, charts, CSV |
 | Feedback | "Did you understand this?" card with optional comment | Phase 4 #16 — done |
@@ -73,7 +74,7 @@ Pages: `/` (landing → lesson), `/metrics` (owner dashboard, `METRICS_TOKEN`), 
 3. **Env vars were undocumented in git.** `.gitignore` ignores `.env*`, so `.env.local.example` was never committed. Phase 1 adds a tracked `.env.example`.
 4. **Metrics are not persistent in production yet.** Upstash variables are empty locally and may not be set on Vercel, so `/metrics` numbers reset on every cold start until they are.
 5. **Retrieval index is process-local.** On Vercel, the upload and a later teach turn can hit different instances. Grounding survives because the client re-sends the text, but citations can drop to "general knowledge" for a turn.
-6. **No page numbers in chunks.** Chunks carry the heading they sat under, not a page number, so Phase 3 page citations need changes in `lib/rag/extract.ts`.
+6. ~~**No page numbers in chunks.**~~ Fixed in Phase 3: PDF chunks carry page ranges and PPTX chunks slide numbers.
 7. **Scanned PDFs are rejected.** There is no OCR.
 8. **Concept plans are capped at 10.** A full exam syllabus needs a syllabus map above the lesson plan (Phase 3 #12).
 9. **Quiz is multiple-choice only.** Descriptive answers with marking-scheme feedback are Phase 3 #13.

@@ -1,6 +1,8 @@
 # Exam content: what you need to fill in
 
-The app ships with placeholder exam files. Nothing in them is used to teach yet (Phase 3 wires them in), so wrong values cannot reach students today. Before Phase 3, fill in the items below.
+Since Phase 3 the syllabus files are **live**: the landing page shows each exam's syllabus map, the teacher prioritises high-weight chapters, and the Practice tab writes questions per chapter and picks chapters by weightage. Anything not marked `verified` is shown to students as "Draft" or "Placeholder", and the prompt tells the teacher never to present it as official. Fill in the items below to remove those labels.
+
+The question bank files are not used yet: the Practice tab generates questions with the AI. Once a bank is verified it can be mixed in as real past-paper-style questions.
 
 Each file has a `status` field:
 

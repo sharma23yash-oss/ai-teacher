@@ -47,7 +47,9 @@ It did not supply the answer, and it did not repeat itself — it identified the
 | **Persistent learner profile** | Topics, scores, strong and weak concepts and history persist across sessions and are fed back into the prompt. |
 | **Multi-provider failover** | Nine models across three providers behind one interface, shown to students as **Fast / Balanced / Deep** (providers in the tooltip); a failed turn silently resumes on another provider with the lesson intact. |
 | **One-box onboarding** | The first screen is a single prompt with sensible defaults (Balanced, Standard Educator, 20-minute lesson, English or Hinglish). Every other setting lives in an **Advanced** drawer. Three sample lessons start in one click. |
-| **Exam prep mode** | NISM, CFA and GATE presets treat your uploaded PDF as the syllabus and quiz in the real exam's format and marking rules. |
+| **Exam prep mode** | NISM Series XV, CFA Level I, GATE CS and board-exam presets, each with a syllabus map and topic weightage (`data/exams/*.json`). The landing page shows the map; the teacher prioritises high-weight chapters and never presents unverified weightage as official. |
+| **Upload-to-course** | An uploaded PDF or notes file is split into chapters with page ranges. Each chapter can be summarised with page citations ("p. 12 · Duration"), and anything the notes don't cover is called out instead of guessed. Lesson answers cite pages too. |
+| **Practice tab** | Question generator for your notes, an exam chapter (or "Practise by weightage") or any topic: easy / medium / hard / mixed, MCQ or descriptive, with explanations. Descriptive answers are marked point by point against a marking scheme, with feedback and a model answer. Every answer feeds mastery and spaced repetition. |
 | **Post-lesson feedback** | "Did you understand this?" (Yes / Partly / Not really) with an optional comment, shown when a lesson completes. |
 | **Usage metrics** | Anonymous, aggregate counts (lessons started and completed, quiz scores, languages, session length, feedback) on a private `/metrics` page. No IDs, IPs, cookies or lesson content. |
 
@@ -303,7 +305,10 @@ One caveat worth planning for: the retrieval index is process-local. On a single
 - **Mastery, revision schedule and streak are per-browser** (`localStorage` key `ai-teacher.learning.v1`), like the learner profile. Phase 4 moves them to Upstash under an anonymous ID.
 - **The learner profile is per-browser.** No accounts, so it does not follow a student across devices.
 - **Concept plans are capped at 10.** A genuinely large syllabus would need nested plans.
-- **Quiz questions are multiple-choice only.** Free-text answers are evaluated conversationally in the lesson, but not in the formal quiz.
+- **The end-of-lesson quiz is multiple-choice only.** Descriptive questions with marking-scheme grading live in the Practice tab.
+- **Page citations need a text PDF or PPTX.** Word and plain-text files have no pages, so their citations name the heading only.
+- **Chapter summaries need the document on the same server instance.** On Vercel a summary can occasionally ask the student to upload the file again (see the process-local index above).
+- **Exam syllabus maps are drafts or placeholders until verified.** The UI and the prompt say so; see `docs/CONTENT-TODO.md`.
 
 ---
 
@@ -314,10 +319,14 @@ app/api/teach     Teaching turn: validation → retrieval → prompt → failove
 app/api/upload    Extract → chunk → embed → index
 app/api/tts       Neural narration with voice fallback
 app/api/refine    Prompt refinement helper
+app/api/course    Chapter summaries, question generator, descriptive grading
 
 lib/pedagogy-engine.ts   System prompts, grounding contract, turn assembly
 lib/providers/           Gemini / Groq / Cohere adapters + failover
-lib/rag/                 zip · extract · embeddings · store (chunk + hybrid retrieval)
+lib/rag/                 zip · extract · blocks (pages) · chunking · outline (chapters) · embeddings · store
+lib/course/              Course API schemas, post-processing (citations, marks), client
+lib/exams/               Syllabus maps: schema, loaders, weightage
+components/practice/     Practice tab: summaries, question cards, marking table
 lib/video/               Storyboard, canvas painter, recorder
 lib/learner-profile.ts   Persistent profile + prompt briefing
 lib/tts-voices.ts        Voice resolution per language and persona

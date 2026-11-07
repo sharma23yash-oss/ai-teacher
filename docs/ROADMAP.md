@@ -25,13 +25,13 @@ Status key: ✅ done · 🟡 partly exists · ⬜ not started. See [AUDIT.md](AU
 
 Mastery stays in the browser (decision for Phase 2); it moves to Upstash with an anonymous ID in Phase 4. Tests run with Vitest (`npm test`). Placeholder exam content and the list of what to fill in: `docs/CONTENT-TODO.md`.
 
-## Phase 3 — Grounded content and exam niche ⬜
+## Phase 3 — Grounded content and exam niche ✅
 
-| # | Item | Status | Builds on |
+| # | Item | Status | Where |
 | --- | --- | --- | --- |
-| 11 | Upload-to-course: chapter summaries, Q&A, **page** citations, "not in your source" answers | 🟡 | RAG pipeline; needs page numbers in extraction |
-| 12 | Presets: NISM Series XV, CFA Level I, GATE, board exams, with syllabus maps and weightage | 🟡 | Generic NISM / CFA / GATE presets exist |
-| 13 | Question generator with difficulty, explanations, marking-scheme feedback | ⬜ | Quiz stage (MCQ only today) |
+| 11 | Upload-to-course: chapter summaries, Q&A, **page** citations, "not in your source" answers | ✅ | `lib/rag/blocks.ts` (pages), `lib/rag/outline.ts` (chapters), `app/api/course` (summary), Practice tab. The model cites passage numbers; the server maps them to pages, so it cannot invent one |
+| 12 | Presets: NISM Series XV, CFA Level I, GATE, board exams, with syllabus maps and weightage | ✅ (content to verify) | `data/exams/*.json`, `lib/exams/syllabi.ts`, syllabus map on the landing page, "Practise by weightage". Values still need checking: see `docs/CONTENT-TODO.md` |
+| 13 | Question generator with difficulty, explanations, marking-scheme feedback | ✅ | `app/api/course` (questions, grade), `components/practice/*`. Server clamps marks and recomputes totals |
 
 ## Phase 4 — Evidence and quality ⬜
 
@@ -59,4 +59,4 @@ Mastery stays in the browser (decision for Phase 2); it moves to Upstash with an
 | Exam syllabus and misconception content must be accurate and licensed | Wrong content damages trust with judges and students | Placeholders clearly marked; you supply or verify the content |
 | Free-tier provider limits | Slow or failed turns at busy times | Three-provider failover; low-bandwidth mode in Phase 5 |
 | No server-side student records | Blocks teacher dashboard and return metrics | Decide storage before Phase 4/5 (default: Upstash + anonymous ID) |
-| Process-local document index on Vercel | Citations can drop for a turn | Move index to shared storage in Phase 3 if page citations need it |
+| Process-local document index on Vercel | Citations can drop for a turn; a chapter summary can hit an instance that never saw the upload and asks the student to upload again | Move the index to shared storage (Upstash) alongside Phase 4 |
