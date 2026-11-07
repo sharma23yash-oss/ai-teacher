@@ -38,7 +38,7 @@ export const generateWithCohere: LessonProvider = async (request) => {
       // always supplied rather than left to chance.
       responseFormat: {
         type: "json_object",
-        jsonSchema: LESSON_JSON_SCHEMA,
+        jsonSchema: request.output?.jsonSchema ?? LESSON_JSON_SCHEMA,
       },
       temperature: 0.6,
       maxTokens: 4096,

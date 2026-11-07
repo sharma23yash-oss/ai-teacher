@@ -94,6 +94,7 @@ const ROUTE_LIMITS: ReadonlyArray<readonly [prefix: string, limit: number]> = [
   ["/api/tts", 30],
   ["/api/teach", 20],
   ["/api/refine", 20],
+  ["/api/course", 20],
   ["/api/upload", 10],
   ["/api/metrics", 30],
 ];

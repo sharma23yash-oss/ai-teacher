@@ -47,7 +47,9 @@ export const generateWithGemini: LessonProvider = async (request) => {
       config: {
         systemInstruction: request.systemInstruction,
         responseMimeType: "application/json",
-        responseSchema: LESSON_RESPONSE_SCHEMA,
+        ...(request.output
+          ? { responseJsonSchema: request.output.jsonSchema }
+          : { responseSchema: LESSON_RESPONSE_SCHEMA }),
         // This model generation rejects `thinkingBudget: 0` with a 400, so
         // "off" means omitting thinkingConfig entirely.
         ...(request.extendedThinking && request.model.supportsThinking

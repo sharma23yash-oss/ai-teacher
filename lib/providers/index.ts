@@ -18,7 +18,9 @@ import {
 import { generateWithGemini, isGeminiConfigured } from "./gemini";
 import { generateWithGroq, isGroqConfigured } from "./groq";
 import { generateWithCohere, isCohereConfigured } from "./cohere";
-import { createCanaryToken } from "@/lib/security/canary";
+import { buildCanaryInstruction, createCanaryToken } from "@/lib/security/canary";
+import { z } from "zod";
+import { providerSafeJsonSchema } from "./json-schema";
 import { sanitizeLessonPayload } from "@/lib/security/sanitize-output";
 
 const PROVIDERS: Record<AiProvider, LessonProvider> = {
@@ -213,6 +215,103 @@ export async function generateLessonWithFailover(
         `[teach] ${model.id} failed (${failure.kind}): ${failure.message}`,
       );
 
+      if (!failure.shouldFailOver) throw failure;
+    }
+  }
+
+  throw new AllProvidersFailedError(failures);
+}
+
+export interface GenerateJsonOptions<T> {
+  /** Which model to try first; failover follows the same chain as lessons. */
+  requestedModelId: TeacherModelId;
+  systemInstruction: string;
+  prompt: string;
+  /** Validates the output. Its JSON Schema is also sent to the provider. */
+  schema: z.ZodType<T>;
+  /** Short snake_case name for the output, required by some providers. */
+  name: string;
+}
+
+/** Pulls a JSON object out of a reply, tolerating markdown fences or a stray sentence. */
+export function extractJsonObject(raw: string): unknown {
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const body = (fenced ? fenced[1] : raw).trim();
+  const start = body.indexOf("{");
+  const end = body.lastIndexOf("}");
+  if (start === -1 || end <= start) throw new Error("No JSON object in the reply.");
+  return JSON.parse(body.slice(start, end + 1));
+}
+
+/**
+ * One structured (non-lesson) call with the same failover, timeout and canary
+ * protection as a lesson turn. Used for chapter summaries, question
+ * generation and descriptive-answer grading.
+ */
+export async function generateJsonWithFailover<T>(
+  options: GenerateJsonOptions<T>,
+): Promise<{ data: T; servedBy: ServedBy }> {
+  const requested = TEACHER_MODELS[options.requestedModelId];
+  const chain = buildFallbackChain(requested);
+  if (chain.length === 0) {
+    throw new ProviderError(
+      "not_configured",
+      requested.provider,
+      "No AI provider is configured. Set at least one of GEMINI_API_KEY, GROQ_API_KEY or COHERE_API_KEY in .env.local.",
+    );
+  }
+
+  const jsonSchema = providerSafeJsonSchema(z.toJSONSchema(options.schema, { target: "draft-7" })) as Record<
+    string,
+    unknown
+  >;
+  const canaryToken = createCanaryToken();
+  const failures: ProviderError[] = [];
+
+  for (const model of chain) {
+    const shapeHint =
+      model.jsonMode === "json"
+        ? `\n\nRespond with one JSON object only, no prose and no code fences, matching this JSON Schema:\n${JSON.stringify(jsonSchema)}`
+        : "";
+    const request: ProviderRequest = {
+      model,
+      systemInstruction: `${options.systemInstruction}${shapeHint}\n\n${buildCanaryInstruction(canaryToken)}`,
+      messages: [{ role: "user", content: options.prompt }],
+      extendedThinking: false,
+      canaryToken,
+      output: { name: options.name, jsonSchema },
+    };
+
+    try {
+      const { text } = await withTimeout(PROVIDERS[model.provider](request), model.provider);
+      let parsed: unknown;
+      try {
+        parsed = extractJsonObject(text);
+      } catch (error) {
+        throw new ProviderError("bad_response", model.provider, `Unparseable JSON: ${String(error)}`);
+      }
+      const result = options.schema.safeParse(parsed);
+      if (!result.success) {
+        throw new ProviderError(
+          "bad_response",
+          model.provider,
+          `Output did not match ${options.name}: ${result.error.issues[0]?.message ?? "invalid"}`,
+        );
+      }
+      return {
+        data: result.data,
+        servedBy: {
+          modelId: model.id,
+          provider: model.provider,
+          label: model.label,
+          switched: model.id !== requested.id,
+        },
+      };
+    } catch (error) {
+      const failure =
+        error instanceof ProviderError ? error : new ProviderError("unavailable", model.provider, String(error));
+      failures.push(failure);
+      console.warn(`[${options.name}] ${model.id} failed (${failure.kind}): ${failure.message}`);
       if (!failure.shouldFailOver) throw failure;
     }
   }

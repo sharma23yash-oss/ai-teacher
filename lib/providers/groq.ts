@@ -47,11 +47,11 @@ export const generateWithGroq: LessonProvider = async (request) => {
         request.model.jsonMode === "schema"
           ? {
               type: "json_schema",
-              json_schema: {
-                name: "lesson_payload",
-                strict: true,
-                schema: LESSON_JSON_SCHEMA,
-              },
+              json_schema: request.output
+                ? // Not strict: strict mode needs every property required,
+                  // and these shapes have optional fields. zod validates after.
+                  { name: request.output.name, strict: false, schema: request.output.jsonSchema }
+                : { name: "lesson_payload", strict: true, schema: LESSON_JSON_SCHEMA },
             }
           : { type: "json_object" },
       temperature: 0.6,

@@ -21,6 +21,11 @@ export interface ProviderRequest {
    * it is ever reflected back — proof the system instruction leaked.
    */
   canaryToken: string;
+  /**
+   * Output shape for non-lesson calls (summaries, question generation,
+   * grading). Omitted for lesson turns, which use the lesson schema.
+   */
+  output?: { name: string; jsonSchema: Record<string, unknown> };
 }
 
 export interface ProviderResponse {
@@ -84,7 +89,12 @@ export function toProviderError(provider: AiProvider, error: unknown): ProviderE
   if (error instanceof ProviderError) return error;
 
   const status = readStatus(error);
-  const message = error instanceof Error ? error.message : String(error);
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "object" && error !== null && typeof (error as { message?: unknown }).message === "string"
+        ? (error as { message: string }).message
+        : String(error);
 
   if (status === 401 || status === 403) {
     return new ProviderError("auth", provider, `Authentication rejected: ${message}`, status);
