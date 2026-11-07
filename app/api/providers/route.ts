@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getConfiguredProviders } from "@/lib/providers";
+import { isDocumentStoreShared } from "@/lib/rag/store";
 import type { ProvidersResponseBody } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -15,5 +16,6 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   return NextResponse.json<ProvidersResponseBody>({
     configured: getConfiguredProviders(),
+    documentStore: isDocumentStoreShared ? "shared" : "memory",
   });
 }

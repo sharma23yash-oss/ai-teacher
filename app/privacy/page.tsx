@@ -51,9 +51,14 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
     title: "Files you upload",
     body: (
       <p>
-        Uploaded notes and PDFs are read and indexed in temporary server memory so the teacher can
-        quote them. They are not saved to disk or a database, and they disappear when the server
-        restarts.
+        When you upload notes or a PDF, we keep a working copy of the text we read from it (not the
+        original file), split into passages with their page numbers, plus a search index so the
+        teacher can find and quote the right passage. To build that index, the text is sent to
+        Google&apos;s embedding service. The copy is held in server memory and in a temporary
+        database (Upstash Redis), so whichever of our servers answers you can use it. It is
+        deleted automatically 24 hours after you upload it, is capped in size, is not linked to
+        you in any way, and is never used for anything else. Removing the file in the app stops it
+        being used in your lessons straight away.
       </p>
     ),
   },

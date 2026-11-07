@@ -1,18 +1,23 @@
 import "server-only";
+import { Redis } from "@upstash/redis";
 import type { KnowledgeChunk, OutlineChapter, RetrievedChunk } from "@/lib/types";
 import type { ExtractedBlock, PageUnit } from "./blocks";
 import { chunkBlocks } from "./chunking";
 import { buildOutline } from "./outline";
 import { cosineSimilarity, embedQuery, embedTexts } from "./embeddings";
+import { isExpired, loadDocument, saveDocument, type KeyValueStore, type PersistedDocument } from "./persist";
 
 /**
  * Chunking, indexing, and retrieval over one uploaded document.
  *
- * The index lives in a process-local Map. That is the honest choice for a
- * single-process app: it is a real vector store with real cosine retrieval,
- * it costs nothing to operate, and a dev-server restart simply drops it — for
- * which the upload route exposes a re-index path, so the client can rebuild
- * from the text it still holds rather than asking the student to upload again.
+ * Storage has two layers:
+ *   - a process-local Map, the fast path for the instance that indexed the
+ *     document (and the only layer when Upstash isn't configured);
+ *   - Upstash Redis (lib/rag/persist.ts), so another serverless instance can
+ *     load a document it never saw. Documents expire 24 hours after upload
+ *     and are capped at 2 MB there; both layers apply the same expiry.
+ * If both miss, the client still holds the extracted text and re-sends it,
+ * so a lesson stays grounded.
  *
  * Retrieval is hybrid on purpose. Dense vectors handle "explain the bit about
  * energy transfer" where the student's words never appear in the document;
@@ -61,6 +66,23 @@ const globalWithStore = globalThis as GlobalWithStore;
 
 const documents: Map<string, IndexedDocument> =
   globalWithStore[STORE_KEY] ?? (globalWithStore[STORE_KEY] = new Map());
+
+/** Upstash Redis when configured (same database as rate limits and metrics), else null. */
+const sharedStore: KeyValueStore | null = (() => {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+  // Raw strings in and out: persist.ts does its own (validated) JSON.
+  const redis = new Redis({ url, token, automaticDeserialization: false });
+  return {
+    get: (key) => redis.get<string>(key),
+    set: async (key, value, ttlSeconds) => {
+      await redis.set(key, value, { ex: ttlSeconds });
+    },
+  };
+})();
+
+export const isDocumentStoreShared = sharedStore !== null;
 
 // ---------------------------------------------------------------------------
 // Lexical scoring (BM25)
@@ -140,6 +162,18 @@ function evictIfNeeded() {
   }
 }
 
+/** Adds the lexical-scoring fields, which are cheap to rebuild and so are not stored. */
+function hydrate(doc: PersistedDocument): IndexedDocument {
+  return {
+    ...doc,
+    documentFrequency: buildDocumentFrequency(doc.chunks),
+    averageLength:
+      doc.chunks.length > 0
+        ? doc.chunks.reduce((total, chunk) => total + tokenize(chunk.text).length, 0) / doc.chunks.length
+        : 0,
+  };
+}
+
 export async function indexDocument(
   docId: string,
   fileName: string,
@@ -159,7 +193,7 @@ export async function indexDocument(
   const vectors = (await embedTexts(embeddingInputs)) ?? [];
   const usable = vectors.length === chunks.length && chunks.length > 0;
 
-  const document: IndexedDocument = {
+  const document = hydrate({
     docId,
     fileName,
     charCount,
@@ -168,25 +202,48 @@ export async function indexDocument(
     retrieval: usable ? "embeddings" : "lexical",
     pageUnit,
     outline: buildOutline(chunks, pageUnit),
-    documentFrequency: buildDocumentFrequency(chunks),
-    averageLength:
-      chunks.length > 0
-        ? chunks.reduce((total, chunk) => total + tokenize(chunk.text).length, 0) / chunks.length
-        : 0,
     indexedAt: Date.now(),
-  };
+  });
 
   documents.set(docId, document);
   evictIfNeeded();
+
+  if (sharedStore) {
+    const persisted: PersistedDocument = {
+      docId: document.docId,
+      fileName: document.fileName,
+      charCount: document.charCount,
+      chunks: document.chunks,
+      vectors: document.vectors,
+      retrieval: document.retrieval,
+      pageUnit: document.pageUnit,
+      outline: document.outline,
+      indexedAt: document.indexedAt,
+    };
+    const result = await saveDocument(sharedStore, persisted);
+    if (result !== "stored") console.warn(`[rag] shared store: ${result} for ${docId}`);
+  }
   return document;
 }
 
-export function getDocument(docId: string): IndexedDocument | undefined {
-  return documents.get(docId);
-}
-
-export function hasDocument(docId: string): boolean {
-  return documents.has(docId);
+/**
+ * This instance's copy if it has one, else the shared store's. Undefined when
+ * the document is unknown or more than 24 hours old.
+ */
+export async function getDocument(docId: string): Promise<IndexedDocument | undefined> {
+  const local = documents.get(docId);
+  if (local) {
+    if (!isExpired(local)) return local;
+    documents.delete(docId);
+    return undefined;
+  }
+  if (!sharedStore) return undefined;
+  const stored = await loadDocument(sharedStore, docId);
+  if (!stored) return undefined;
+  const document = hydrate(stored);
+  documents.set(docId, document);
+  evictIfNeeded();
+  return document;
 }
 
 // ---------------------------------------------------------------------------
@@ -216,7 +273,7 @@ export async function retrieve(
   docId: string,
   { query, conceptHint, topK = 5 }: RetrieveOptions,
 ): Promise<RetrievedChunk[]> {
-  const document = documents.get(docId);
+  const document = await getDocument(docId);
   if (!document || document.chunks.length === 0) return [];
 
   const searchText = conceptHint ? `${conceptHint}. ${query}` : query;
@@ -257,8 +314,8 @@ export async function retrieve(
  * no student question to retrieve against yet — the model needs to see enough
  * to plan a syllabus, not five paragraphs matched against "teach me this".
  */
-export function leadingContext(docId: string, maxChars = 6000): RetrievedChunk[] {
-  const document = documents.get(docId);
+export async function leadingContext(docId: string, maxChars = 6000): Promise<RetrievedChunk[]> {
+  const document = await getDocument(docId);
   if (!document) return [];
 
   const out: RetrievedChunk[] = [];
@@ -276,8 +333,8 @@ export function leadingContext(docId: string, maxChars = 6000): RetrievedChunk[]
  * so a long chapter still fits one prompt. Empty if the document or chapter
  * is unknown.
  */
-export function chapterChunks(docId: string, chapterId: string, maxChars = 12_000): KnowledgeChunk[] {
-  const document = documents.get(docId);
+export async function chapterChunks(docId: string, chapterId: string, maxChars = 12_000): Promise<KnowledgeChunk[]> {
+  const document = await getDocument(docId);
   const chapter = document?.outline.find((c) => c.id === chapterId);
   if (!document || !chapter) return [];
   const wanted = new Set(chapter.chunkIds);

@@ -37,13 +37,13 @@ function languageLine(language: CourseRequest["language"]): string {
 }
 
 function notFound(): NextResponse<Json> {
-  return fail("That document or chapter is no longer loaded on the server. Upload the file again.", 404);
+  return fail("That document has expired (uploads are kept for 24 hours) or is no longer loaded. Upload the file again.", 404);
 }
 
 async function handleSummary(body: Extract<CourseRequest, { action: "summary" }>) {
-  const document = getDocument(body.docId);
+  const document = await getDocument(body.docId);
   const chapter = document?.outline.find((c) => c.id === body.chapterId);
-  const passages = chapterChunks(body.docId, body.chapterId);
+  const passages = await chapterChunks(body.docId, body.chapterId);
   if (!document || !chapter || passages.length === 0) return notFound();
 
   const { data } = await generateJsonWithFailover({
@@ -82,9 +82,9 @@ async function handleQuestions(body: Extract<CourseRequest, { action: "questions
   const examMeta = exam ? EXAM_PRESET_META[exam] : null;
 
   if (source.kind === "document") {
-    const document = getDocument(source.docId);
+    const document = await getDocument(source.docId);
     const chapter = document?.outline.find((c) => c.id === source.chapterId);
-    passages = chapterChunks(source.docId, source.chapterId);
+    passages = await chapterChunks(source.docId, source.chapterId);
     if (!document || !chapter || passages.length === 0) return notFound();
     subject = `the chapter "${chapter.title}" of the student's notes "${document.fileName}"`;
     context = `${GROUNDING_RULES}\nEvery question must be answerable from the passages alone.`;

@@ -59,4 +59,4 @@ Mastery stays in the browser (decision for Phase 2); it moves to Upstash with an
 | Exam syllabus and misconception content must be accurate and licensed | Wrong content damages trust with judges and students | Placeholders clearly marked; you supply or verify the content |
 | Free-tier provider limits | Slow or failed turns at busy times | Three-provider failover; low-bandwidth mode in Phase 5 |
 | No server-side student records | Blocks teacher dashboard and return metrics | Decide storage before Phase 4/5 (default: Upstash + anonymous ID) |
-| Process-local document index on Vercel | Citations can drop for a turn; a chapter summary can hit an instance that never saw the upload and asks the student to upload again | Move the index to shared storage (Upstash) alongside Phase 4 |
+| Shared document store needs Upstash on Vercel | Without the Upstash variables, documents stay per-instance and a chapter summary can ask for a re-upload | Set `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`; documents then live in Redis for 24 h (2 MB cap) |

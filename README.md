@@ -289,13 +289,13 @@ Optional settings:
 
 ## 15. Deployment
 
-Deploys to Vercel as a standard Next.js app. Set `GEMINI_API_KEY`, `GROQ_API_KEY` and `COHERE_API_KEY` as environment variables. To keep usage numbers across deploys and cold starts, also set the two Upstash variables and `METRICS_TOKEN` (see the table above). `/api/upload`, `/api/teach` and `/api/tts` all run on the Node.js runtime (`pdf-parse` and `msedge-tts` need Node APIs, not Edge).
+Deploys to Vercel as a standard Next.js app. Set `GEMINI_API_KEY`, `GROQ_API_KEY` and `COHERE_API_KEY` as environment variables. To keep usage numbers across deploys and share uploaded documents between instances, also set the two Upstash variables and `METRICS_TOKEN` (see the table above). `/api/upload`, `/api/teach` and `/api/tts` all run on the Node.js runtime (`pdf-parse` and `msedge-tts` need Node APIs, not Edge).
 
-One caveat worth planning for: the retrieval index is process-local. On a single instance that is correct and free; on a horizontally scaled deployment an uploaded document would only be found by the instance that indexed it. Moving `lib/rag/store.ts` behind Redis or a hosted vector database is a contained change — the interface (`indexDocument`, `retrieve`, `leadingContext`) is already the seam.
+Uploaded documents are shared between serverless instances through the same Upstash database (key `doc:<id>`, deleted 24 hours after upload, 2 MB cap). Without the Upstash variables each instance keeps its own copy in memory, so on Vercel a chapter summary can ask the student to upload the file again.
 
 ## 16. Known limitations
 
-- **Retrieval index is in-memory and process-local.** Documents are dropped on restart. The client re-sends extracted text when it detects an ungrounded turn, which recovers grounding, but a horizontally scaled deployment needs a shared store.
+- **Uploaded documents last 24 hours.** They are kept in Upstash Redis (shared by every server instance, 2 MB cap per document; larger ones drop their search vectors and use keyword search) plus a per-instance memory cache. Without the Upstash variables they live in one instance's memory only. After 24 hours the student uploads the file again; the client also re-sends the extracted text if a lesson turn finds no document.
 - **Scanned PDFs are not read.** Text extraction only; there is no OCR, so an image-only PDF is rejected with a message saying so.
 - **Legacy `.doc` and `.ppt` are unsupported** — the pre-2007 binary formats are not ZIP archives. Save as `.docx` / `.pptx`.
 - **Video export is real-time.** Recording a 38-second lesson takes 38 seconds, because `MediaRecorder` captures a live stream. Output is WebM; Safari support for the codec is limited, so export is best in Chrome or Edge.
@@ -307,7 +307,6 @@ One caveat worth planning for: the retrieval index is process-local. On a single
 - **Concept plans are capped at 10.** A genuinely large syllabus would need nested plans.
 - **The end-of-lesson quiz is multiple-choice only.** Descriptive questions with marking-scheme grading live in the Practice tab.
 - **Page citations need a text PDF or PPTX.** Word and plain-text files have no pages, so their citations name the heading only.
-- **Chapter summaries need the document on the same server instance.** On Vercel a summary can occasionally ask the student to upload the file again (see the process-local index above).
 - **Exam syllabus maps are drafts or placeholders until verified.** The UI and the prompt say so; see `docs/CONTENT-TODO.md`.
 
 ---

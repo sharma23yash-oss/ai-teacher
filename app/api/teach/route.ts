@@ -60,7 +60,7 @@ export async function POST(request: Request) {
 
   if (body.docId) {
     try {
-      const document = getDocument(body.docId);
+      const document = await getDocument(body.docId);
       if (document) {
         documentName = document.fileName;
         const plannedYet = (body.lessonState?.concept_plan.length ?? 0) > 0;
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
           // First turn on this document: there is no question to retrieve
           // against yet, and the model needs a wide enough view to build a
           // syllabus rather than five paragraphs matched on "teach me this".
-          retrieved = leadingContext(body.docId);
+          retrieved = await leadingContext(body.docId);
         } else {
           const currentConcept = body.lessonState?.concept_plan.find(
             (concept) => concept.status === "current",

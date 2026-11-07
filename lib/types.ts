@@ -914,6 +914,8 @@ export type TeachResponseBody =
 export interface ProvidersResponseBody {
   /** Providers whose API key is present on the server. */
   configured: AiProvider[];
+  /** Where uploaded documents live: "shared" (Upstash, 24 h) or "memory" (this instance only). */
+  documentStore?: "shared" | "memory";
 }
 
 /** One retrievable passage of an uploaded document. */

@@ -40,7 +40,7 @@ Pages: `/` (landing → lesson), `/metrics` (owner dashboard, `METRICS_TOKEN`), 
 | --- | --- | --- | --- |
 | Learner profile (topics, scores, strong/weak concepts, history, preferences) | Browser `localStorage` (`ai-teacher.learner-profile.v1`, `lib/learner-profile.ts`) | Until the student clears it | Per-browser. No accounts, so nothing follows a student between devices. |
 | Lesson state (concept plan, phase, misconceptions) | React state, re-sent with every turn | One tab session | Lets any provider resume the lesson after a failover. |
-| Uploaded documents and their index | Server memory (`lib/rag/store.ts`, a process-local `Map`) | Until the serverless instance is recycled | The client re-sends the raw text if retrieval stops working, so lessons stay grounded. Not shared between instances. |
+| Uploaded documents and their index | Upstash Redis (`doc:<id>`, extracted text + int8 search vectors, 2 MB cap) plus a per-instance memory cache (`lib/rag/store.ts`, `lib/rag/persist.ts`). Memory only without Upstash | 24 hours from upload, in both layers | Text only, not the original file; no link to a person. Over 2 MB: vectors dropped (keyword search); text over 2 MB stays on the indexing instance only |
 | Usage metrics | Upstash Redis hashes (`metrics:*`), or server memory without Upstash | Redis: permanent (daily keys 400 days). Memory: resets on cold start. | Aggregate counters only, no per-person rows. |
 | Rate-limit counters | Upstash Redis or memory | 60-second windows | |
 
@@ -73,7 +73,7 @@ Pages: `/` (landing → lesson), `/metrics` (owner dashboard, `METRICS_TOKEN`), 
 2. **No type-check script.** `npm run build` type-checks, but there is no fast standalone check. Added `npm run typecheck` in Phase 1.
 3. **Env vars were undocumented in git.** `.gitignore` ignores `.env*`, so `.env.local.example` was never committed. Phase 1 adds a tracked `.env.example`.
 4. **Metrics are not persistent in production yet.** Upstash variables are empty locally and may not be set on Vercel, so `/metrics` numbers reset on every cold start until they are.
-5. **Retrieval index is process-local.** On Vercel, the upload and a later teach turn can hit different instances. Grounding survives because the client re-sends the text, but citations can drop to "general knowledge" for a turn.
+5. ~~**Retrieval index is process-local.**~~ Fixed: documents are shared through Upstash Redis for 24 hours when it is configured.
 6. ~~**No page numbers in chunks.**~~ Fixed in Phase 3: PDF chunks carry page ranges and PPTX chunks slide numbers.
 7. **Scanned PDFs are rejected.** There is no OCR.
 8. **Concept plans are capped at 10.** A full exam syllabus needs a syllabus map above the lesson plan (Phase 3 #12).
