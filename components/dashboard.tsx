@@ -16,6 +16,7 @@ import {
   type LessonPayload,
   type LessonState,
   type LearnerProfileRecord,
+  type OutlineChapter,
   type QuizReport,
   type RetrievedChunk,
   type TeachAction,
@@ -49,6 +50,7 @@ import { FeedbackCard } from "./brain/feedback-card";
 import { track } from "@/lib/metrics/client";
 import type { FeedbackRating } from "@/lib/metrics/feedback";
 import { BrainPanel } from "./brain/brain-panel";
+import { PracticePanel } from "./practice/practice-panel";
 import type { LearningActions } from "./brain/chat-interface";
 import { LessonSummaryDialog } from "./summary/lesson-summary";
 import {
@@ -85,6 +87,8 @@ interface UploadedNote {
   docId: string;
   chunkCount: number;
   retrieval: "embeddings" | "lexical";
+  /** Chapters for summaries and practice (Practice tab). */
+  outline: OutlineChapter[];
 }
 
 // Short spoken reactions after each quiz question — flavored per persona to
@@ -399,6 +403,16 @@ export function Dashboard() {
     });
     setLearningNow(now);
   }, []);
+
+  /** A checked practice answer is quiz evidence for its concept, filed under the practice set's topic. */
+  const handlePracticeAnswer = useCallback(
+    (concept: string, correct: boolean, topic: string) => {
+      addEvidence([
+        { key: conceptKey(concept), label: concept, topic, kind: "quiz", correct, hintLevel: 0, at: new Date().toISOString() },
+      ]);
+    },
+    [addEvidence],
+  );
 
   // Session length: measured from page load to the first time the page is
   // hidden or closed, and only for visits where a lesson was started.
@@ -1088,6 +1102,7 @@ export function Dashboard() {
         docId: data.knowledgeBase.docId,
         chunkCount: data.knowledgeBase.chunkCount,
         retrieval: data.knowledgeBase.retrieval,
+        outline: data.knowledgeBase.outline,
       });
       setGroundedLastTurn(false);
       setGroundedOn([]);
@@ -1304,6 +1319,20 @@ export function Dashboard() {
             onClearUpload={() => setUploadedNote(null)}
             mastery={masteryById}
             learningActions={learningActions}
+            practice={
+              <PracticePanel
+                document={
+                  uploadedNote
+                    ? { docId: uploadedNote.docId, fileName: uploadedNote.fileName, outline: uploadedNote.outline }
+                    : null
+                }
+                examPreset={examPreset}
+                currentTopic={currentTopic}
+                language={language}
+                modelId={model}
+                onPracticeAnswer={handlePracticeAnswer}
+              />
+            }
             notices={
               <>
                 {failedTurn && (
