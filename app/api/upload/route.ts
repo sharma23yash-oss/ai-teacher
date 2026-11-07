@@ -101,7 +101,7 @@ async function handleUpload(request: Request): Promise<Response> {
   // error — the first turn is grounded in the extracted text either way.
   try {
     const docId = randomUUID();
-    const indexed = await indexDocument(docId, fileName.data, extracted.blocks);
+    const indexed = await indexDocument(docId, fileName.data, extracted.blocks, extracted.pageUnit);
 
     return NextResponse.json<UploadResponseBody>({
       ok: true,
@@ -113,6 +113,8 @@ async function handleUpload(request: Request): Promise<Response> {
         charCount: indexed.charCount,
         chunkCount: indexed.chunks.length,
         retrieval: indexed.retrieval,
+        pageUnit: indexed.pageUnit,
+        outline: indexed.outline,
       },
     });
   } catch (error) {

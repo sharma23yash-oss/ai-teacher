@@ -1,6 +1,9 @@
 import "server-only";
 import { PDFParse } from "pdf-parse";
 import { readZipDirectory, readZipEntryText } from "./zip";
+import { blocksFromPages, extractPlainText, type ExtractedBlock, type PageUnit } from "./blocks";
+
+export type { ExtractedBlock, PageUnit } from "./blocks";
 
 /**
  * Turns an uploaded file into plain text plus the structure worth keeping.
@@ -13,15 +16,11 @@ import { readZipDirectory, readZipEntryText } from "./zip";
 
 export type SourceKind = "pdf" | "docx" | "pptx" | "text";
 
-export interface ExtractedBlock {
-  /** Nearest enclosing heading, chapter, or slide title. */
-  heading?: string;
-  text: string;
-}
-
 export interface ExtractedDocument {
   kind: SourceKind;
   blocks: ExtractedBlock[];
+  /** What block.page counts: "page" for PDF, "slide" for PPTX, null otherwise. */
+  pageUnit: PageUnit;
   /** Everything joined back together — what the first turn is grounded in. */
   text: string;
 }
@@ -124,7 +123,7 @@ async function extractPptx(buffer: Uint8Array): Promise<ExtractedBlock[]> {
     // The first run on a slide is almost always its title placeholder, which
     // makes a far better citation label than "slide 7".
     const heading = `Slide ${n}: ${runs[0]}`.slice(0, 120);
-    blocks.push({ heading, text: runs.join(" · ") });
+    blocks.push({ heading, text: runs.join(" · "), page: n });
   }
 
   return blocks;
@@ -134,57 +133,13 @@ async function extractPptx(buffer: Uint8Array): Promise<ExtractedBlock[]> {
 // PDF and plain text
 // ---------------------------------------------------------------------------
 
-/**
- * A line that looks like a heading: short, not sentence-punctuated, and
- * either numbered, title-cased or shouting. Deliberately conservative — a
- * wrong heading is worse than no heading, because it mislabels a citation.
- */
-function looksLikeHeading(line: string): boolean {
-  const trimmed = line.trim();
-  if (trimmed.length < 3 || trimmed.length > 90) return false;
-  if (/[.!?,;]$/.test(trimmed)) return false;
-  if (/^#{1,6}\s+/.test(trimmed)) return true;
-  if (/^(chapter|section|unit|module|lesson|part|topic)\b/i.test(trimmed)) return true;
-  if (/^\d+(\.\d+)*[.)]?\s+\S/.test(trimmed) && trimmed.length < 70) return true;
-  if (trimmed === trimmed.toUpperCase() && /[A-Z]{3}/.test(trimmed)) return true;
-  return false;
-}
-
-function extractPlainText(text: string): ExtractedBlock[] {
-  const blocks: ExtractedBlock[] = [];
-  let heading: string | undefined;
-  let buffer: string[] = [];
-
-  const flush = () => {
-    const joined = buffer.join(" ").replace(/\s+/g, " ").trim();
-    if (joined) blocks.push({ heading, text: joined });
-    buffer = [];
-  };
-
-  for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line) {
-      flush();
-      continue;
-    }
-    if (looksLikeHeading(line)) {
-      flush();
-      heading = line.replace(/^#{1,6}\s+/, "");
-      blocks.push({ heading, text: heading });
-      continue;
-    }
-    buffer.push(line);
-  }
-  flush();
-
-  return blocks;
-}
-
 async function extractPdf(buffer: Uint8Array): Promise<ExtractedBlock[]> {
   const parser = new PDFParse({ data: Buffer.from(buffer) });
   try {
     const result = await parser.getText();
-    return extractPlainText(result.text);
+    // Per-page text is what makes "p. 12" citations possible; fall back to
+    // the joined text if a PDF somehow reports no pages.
+    return result.pages.length > 0 ? blocksFromPages(result.pages) : extractPlainText(result.text);
   } finally {
     await parser.destroy();
   }
@@ -285,6 +240,7 @@ export async function extractDocument(
   return {
     kind,
     blocks,
+    pageUnit: kind === "pdf" ? "page" : kind === "pptx" ? "slide" : null,
     text: blocks.map((block) => block.text).join("\n\n"),
   };
 }

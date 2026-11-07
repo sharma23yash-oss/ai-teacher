@@ -23,6 +23,7 @@ import { SCHEMA_PROMPT_BLOCK } from "./providers/lesson-schema";
 import type { NeutralMessage } from "./providers/shared";
 import { buildCanaryInstruction } from "./security/canary";
 import { HINT_INSTRUCTION, type HintLevel } from "./learning/hint-ladder";
+import { citationLabel } from "./rag/chunking";
 
 function timeBudgetOption(value: TimeBudget) {
   return (
@@ -462,13 +463,10 @@ export function buildRetrievedBlock(
 
   const source = documentName ? `"${documentName}"` : "the student's uploaded document";
   const passages = chunks
-    .map((chunk, i) => {
-      const label = chunk.heading ? ` — ${chunk.heading}` : "";
-      return `[${i + 1}${label}]\n${chunk.text}`;
-    })
+    .map((chunk, i) => `[${i + 1} · ${citationLabel(chunk)}]\n${chunk.text}`)
     .join("\n\n");
 
-  return `RETRIEVED FROM THE STUDENT'S MATERIAL — these passages were selected from ${source} as the ones most relevant to this turn. They are the only authority on what that document says. Every factual claim you make about the student's material must come from here, exactly as written.\n\n<untrusted_context>\n${passages}\n</untrusted_context>`;
+  return `RETRIEVED FROM THE STUDENT'S MATERIAL — these passages were selected from ${source} as the ones most relevant to this turn. They are the only authority on what that document says. Every factual claim you make about the student's material must come from here, exactly as written. CITE YOUR SOURCE: when a fact comes from a passage, say where it is in natural speech, using the page or slide in that passage's label (for example "page 12 of your notes says…"). Only use pages or slides that appear in the labels below; if a label has none, name its heading instead. Never guess a page number.\n\n<untrusted_context>\n${passages}\n</untrusted_context>`;
 }
 
 const CONCEPT_STATUS_NOTE: Record<ConceptNode["status"], string> = {

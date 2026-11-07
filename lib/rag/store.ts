@@ -1,6 +1,8 @@
 import "server-only";
-import type { KnowledgeChunk, RetrievedChunk } from "@/lib/types";
-import type { ExtractedBlock } from "./extract";
+import type { KnowledgeChunk, OutlineChapter, RetrievedChunk } from "@/lib/types";
+import type { ExtractedBlock, PageUnit } from "./blocks";
+import { chunkBlocks } from "./chunking";
+import { buildOutline } from "./outline";
 import { cosineSimilarity, embedQuery, embedTexts } from "./embeddings";
 
 /**
@@ -19,11 +21,6 @@ import { cosineSimilarity, embedQuery, embedTexts } from "./embeddings";
  * either one alone, and lexical keeps working when embeddings are down.
  */
 
-const TARGET_CHUNK_CHARS = 900;
-const CHUNK_OVERLAP_CHARS = 150;
-const MIN_CHUNK_CHARS = 60;
-const MAX_CHUNKS = 400;
-
 /** Documents kept in memory at once, oldest evicted first. */
 const MAX_DOCUMENTS = 8;
 
@@ -35,6 +32,8 @@ export interface IndexedDocument {
   /** Parallel to chunks; empty when the document was indexed lexically. */
   vectors: number[][];
   retrieval: "embeddings" | "lexical";
+  pageUnit: PageUnit;
+  outline: OutlineChapter[];
   /** Document frequency per term, for the lexical half of the score. */
   documentFrequency: Map<string, number>;
   averageLength: number;
@@ -62,78 +61,6 @@ const globalWithStore = globalThis as GlobalWithStore;
 
 const documents: Map<string, IndexedDocument> =
   globalWithStore[STORE_KEY] ?? (globalWithStore[STORE_KEY] = new Map());
-
-// ---------------------------------------------------------------------------
-// Chunking
-// ---------------------------------------------------------------------------
-
-/**
- * Packs blocks into chunks of roughly TARGET_CHUNK_CHARS, never splitting a
- * block across chunks unless the block is itself oversized, and carrying the
- * heading each chunk sat under so a citation can name it.
- */
-export function chunkBlocks(blocks: ExtractedBlock[]): KnowledgeChunk[] {
-  const chunks: KnowledgeChunk[] = [];
-  let buffer = "";
-  let heading: string | undefined;
-
-  const push = () => {
-    const text = buffer.trim();
-    if (text.length >= MIN_CHUNK_CHARS || (text && chunks.length === 0)) {
-      chunks.push({
-        id: `c${chunks.length + 1}`,
-        index: chunks.length + 1,
-        heading,
-        text,
-      });
-    }
-    buffer = "";
-  };
-
-  for (const block of blocks) {
-    if (chunks.length >= MAX_CHUNKS) break;
-
-    // A heading change is a natural seam — start a new chunk rather than
-    // letting one passage carry two different headings' worth of context.
-    if (block.heading !== heading && buffer.trim()) {
-      push();
-    }
-    heading = block.heading;
-
-    let text = block.text.trim();
-    if (!text) continue;
-
-    // An oversized single block (a wall-of-text PDF page) is split on
-    // sentence boundaries with overlap, so a fact straddling the seam still
-    // appears whole in one of the two chunks.
-    while (text.length > TARGET_CHUNK_CHARS * 1.6) {
-      const window = text.slice(0, TARGET_CHUNK_CHARS);
-      const lastStop = Math.max(
-        window.lastIndexOf(". "),
-        window.lastIndexOf("। "),
-        window.lastIndexOf("? "),
-        window.lastIndexOf("! "),
-      );
-      const cut = lastStop > TARGET_CHUNK_CHARS * 0.5 ? lastStop + 1 : TARGET_CHUNK_CHARS;
-
-      buffer = buffer ? `${buffer} ${text.slice(0, cut)}` : text.slice(0, cut);
-      push();
-      text = text.slice(Math.max(0, cut - CHUNK_OVERLAP_CHARS)).trim();
-      if (chunks.length >= MAX_CHUNKS) return chunks;
-    }
-
-    const candidate = buffer ? `${buffer} ${text}` : text;
-    if (candidate.length > TARGET_CHUNK_CHARS) {
-      push();
-      buffer = text;
-    } else {
-      buffer = candidate;
-    }
-  }
-
-  push();
-  return chunks;
-}
 
 // ---------------------------------------------------------------------------
 // Lexical scoring (BM25)
@@ -217,8 +144,9 @@ export async function indexDocument(
   docId: string,
   fileName: string,
   blocks: ExtractedBlock[],
+  pageUnit: PageUnit = null,
 ): Promise<IndexedDocument> {
-  const chunks = chunkBlocks(blocks);
+  const chunks = chunkBlocks(blocks, pageUnit);
   const charCount = chunks.reduce((total, chunk) => total + chunk.text.length, 0);
 
   // A heading gives a passage meaning the passage itself may not carry
@@ -238,6 +166,8 @@ export async function indexDocument(
     chunks,
     vectors: usable ? vectors : [],
     retrieval: usable ? "embeddings" : "lexical",
+    pageUnit,
+    outline: buildOutline(chunks, pageUnit),
     documentFrequency: buildDocumentFrequency(chunks),
     averageLength:
       chunks.length > 0
@@ -339,4 +269,25 @@ export function leadingContext(docId: string, maxChars = 6000): RetrievedChunk[]
     used += chunk.text.length;
   }
   return out.length > 0 ? out : document.chunks.slice(0, 1).map((c) => ({ ...c, score: 1 }));
+}
+
+/**
+ * The passages of one outline chapter, in document order, capped at maxChars
+ * so a long chapter still fits one prompt. Empty if the document or chapter
+ * is unknown.
+ */
+export function chapterChunks(docId: string, chapterId: string, maxChars = 12_000): KnowledgeChunk[] {
+  const document = documents.get(docId);
+  const chapter = document?.outline.find((c) => c.id === chapterId);
+  if (!document || !chapter) return [];
+  const wanted = new Set(chapter.chunkIds);
+  const out: KnowledgeChunk[] = [];
+  let used = 0;
+  for (const chunk of document.chunks) {
+    if (!wanted.has(chunk.id)) continue;
+    if (used + chunk.text.length > maxChars && out.length > 0) break;
+    out.push(chunk);
+    used += chunk.text.length;
+  }
+  return out;
 }

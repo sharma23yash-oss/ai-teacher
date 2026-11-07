@@ -900,6 +900,21 @@ export interface KnowledgeChunk {
   /** Nearest preceding heading, when the document had one. */
   heading?: string;
   text: string;
+  /** First and last page (or slide) the passage came from, when the document has pages. */
+  pageStart?: number;
+  pageEnd?: number;
+  /** Ready-made citation, e.g. "p. 12", "pp. 12–13", "slide 4". */
+  locator?: string;
+}
+
+/** One chapter of an uploaded document's outline (see lib/rag/outline.ts). */
+export interface OutlineChapter {
+  id: string;
+  title: string;
+  locator?: string;
+  pageStart?: number;
+  pageEnd?: number;
+  chunkIds: string[];
 }
 
 /** A passage that retrieval selected for this turn, with its relevance score. */
@@ -915,6 +930,10 @@ export interface KnowledgeBaseSummary {
   chunkCount: number;
   /** "embeddings" when vectors were built, "lexical" when we fell back. */
   retrieval: "embeddings" | "lexical";
+  /** What page numbers count in this document: "page" (PDF), "slide" (PPTX) or null. */
+  pageUnit: "page" | "slide" | null;
+  /** Chapters detected in the document, for chapter summaries and practice. */
+  outline: OutlineChapter[];
 }
 
 export type UploadResponseBody =
