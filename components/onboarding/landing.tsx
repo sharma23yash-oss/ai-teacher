@@ -22,6 +22,7 @@ import {
 import { AdvancedSettings, type LessonSettingsControls } from "../stage/advanced-settings";
 import { SiteFooter } from "../site-footer";
 import { RevisionPanel, type RevisionItem } from "./revision-panel";
+import { SyllabusMap } from "./syllabus-map";
 
 const UPLOAD_ACCEPT = ".pdf,.txt,.md,.docx,.pptx";
 
@@ -291,9 +292,11 @@ export function Landing({
                   </>
                 )}
               </p>
-            ) : (
+            ) : null}
+            {examPreset && <SyllabusMap preset={examPreset} />}
+            {!exam && (
               <p className="mt-2 text-sm text-slate-400">
-                NISM, CFA and GATE modes teach from your own PDF and quiz you in the exam&apos;s format.
+                NISM, CFA, GATE and board-exam modes follow the syllabus, teach from your own PDF and quiz you in the exam&apos;s format.
               </p>
             )}
           </div>
@@ -366,5 +369,7 @@ function examPlaceholder(preset: ExamPreset): string {
       return "CFA Level I: time value of money";
     case "gate":
       return "GATE CSE: deadlock and the Banker's algorithm";
+    case "board":
+      return "CBSE Class 10 Science: chemical reactions and equations";
   }
 }

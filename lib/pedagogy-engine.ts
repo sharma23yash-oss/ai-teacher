@@ -24,6 +24,7 @@ import type { NeutralMessage } from "./providers/shared";
 import { buildCanaryInstruction } from "./security/canary";
 import { HINT_INSTRUCTION, type HintLevel } from "./learning/hint-ladder";
 import { citationLabel } from "./rag/chunking";
+import { syllabusBriefing, syllabusFor } from "./exams/syllabi";
 
 function timeBudgetOption(value: TimeBudget) {
   return (
@@ -280,6 +281,8 @@ export function buildSystemInstruction(
   if (examPreset) {
     const exam = EXAM_PRESET_META[examPreset];
     instruction = `${instruction}\n\nExam Prep Mode — ${exam.fullName}: ${exam.instruction} When study material has been provided, treat it as the syllabus: build the concept_plan from its chapters and headings, cite it when you state a fact, and never contradict it. When no material has been provided, say once at the start that you are teaching from general knowledge and suggest uploading the official PDF.`;
+    const syllabus = syllabusFor(examPreset);
+    if (syllabus) instruction = `${instruction}\n\n${syllabusBriefing(syllabus)}`;
   }
 
   if (hasWebcamFrame) {

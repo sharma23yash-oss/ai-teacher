@@ -756,7 +756,7 @@ export type TeachAction = "teach" | "take_quiz";
 // syllabus. Without a PDF it still works, but says it is teaching from
 // general knowledge.
 
-export const EXAM_PRESETS = ["nism", "cfa", "gate"] as const;
+export const EXAM_PRESETS = ["nism", "cfa", "gate", "board"] as const;
 
 export type ExamPreset = (typeof EXAM_PRESETS)[number];
 
@@ -769,6 +769,10 @@ export interface ExamPresetMeta {
   uploadHint: string;
   /** Appended to the system prompt. */
   instruction: string;
+  /** File in data/exams/ holding this exam's syllabus map (see lib/exams/syllabi.ts). */
+  syllabusId: string;
+  /** How descriptive answers are marked, for the question generator and grader. */
+  markingStyle: string;
 }
 
 export const EXAM_PRESET_META: Record<ExamPreset, ExamPresetMeta> = {
@@ -778,7 +782,10 @@ export const EXAM_PRESET_META: Record<ExamPreset, ExamPresetMeta> = {
     blurb: "Regulations, products and procedures, drilled as MCQs",
     uploadHint: "Upload the NISM workbook PDF for your series",
     instruction:
-      "The student is preparing for a NISM certification exam (India's SEBI-mandated securities markets certifications). These are 100-question, single-correct MCQ tests with negative marking of 25% per wrong answer and a 50-60% pass mark. Emphasise exact regulatory facts that the workbook states: SEBI regulations, definitions, limits, timelines, fees and procedural steps. When you quiz, write questions in NISM's style: one correct option, three plausible distractors that differ on a number, a timeline or a single word of the rule. After each concept, give one memory hook for the exact figure. Remind the student when guessing is not worth the negative mark.",
+      "The student is preparing for a NISM certification exam (India's SEBI-mandated securities markets certifications). These are single-correct MCQ tests, usually with negative marking; use the exact format from the syllabus map below when it is given, and do not state numbers it does not give. Emphasise exact regulatory facts that the workbook states: SEBI regulations, definitions, limits, timelines, fees and procedural steps. When you quiz, write questions in NISM's style: one correct option, three plausible distractors that differ on a number, a timeline or a single word of the rule. After each concept, give one memory hook for the exact figure. Remind the student when guessing is not worth the negative mark.",
+    syllabusId: "nism-xv",
+    markingStyle:
+      "NISM is MCQ-only. For a descriptive practice answer, award marks for each exact regulatory fact, figure, timeline or procedural step the scheme lists; no marks for vague paraphrase of a rule.",
   },
   cfa: {
     label: "CFA",
@@ -787,6 +794,9 @@ export const EXAM_PRESET_META: Record<ExamPreset, ExamPresetMeta> = {
     uploadHint: "Upload the curriculum reading or your notes PDF",
     instruction:
       "The student is preparing for the CFA Program exam. Organise each concept around the Learning Outcome Statement it serves, and use the command words the curriculum uses (calculate, explain, compare, evaluate). Show every formula with a worked numerical example, and flag the common calculator and sign errors. When you quiz, use the CFA format: three options (A, B, C) with no negative marking, and for Level II-style practice a short vignette followed by the question. Point out which ethics standard or reading a fact comes from when the material says so.",
+    syllabusId: "cfa-l1",
+    markingStyle:
+      "CFA constructed-response style: marks for the correct method, the correct formula with inputs, the final answer with units or sign, and a one-line justification; partial credit for correct method with an arithmetic slip.",
   },
   gate: {
     label: "GATE",
@@ -795,6 +805,20 @@ export const EXAM_PRESET_META: Record<ExamPreset, ExamPresetMeta> = {
     uploadHint: "Upload your subject notes or previous-year paper PDF",
     instruction:
       "The student is preparing for GATE. Move quickly from the concept to solving numerical problems, and show the shortest exam-time method alongside the full derivation. When you quiz, mix GATE's three formats: MCQ (one correct answer, negative marking of one-third of the marks), MSQ (one or more correct answers, no negative marking) and NAT (type a numerical answer, no options, no negative marking). Label each question with its format and its marks (1 or 2). Point out common unit and approximation traps, and say which topics appear most often in previous papers when the material indicates it.",
+    syllabusId: "gate-cs",
+    markingStyle:
+      "GATE is objective (no partial credit in the real exam). For descriptive practice, award marks for the correct approach, each key intermediate result, and the final value within the stated precision.",
+  },
+  board: {
+    label: "Board",
+    fullName: "School board exams (CBSE / state boards)",
+    blurb: "Chapter-wise, marks-based answers with step marking",
+    uploadHint: "Upload your textbook chapter or class notes PDF",
+    instruction:
+      "The student is preparing for a school board exam (CBSE or a state board). Follow the textbook's chapter order and language. Teach answers in the structure examiners reward: the definition or law first, then the explanation, a labelled diagram or formula where relevant, and a worked example; keep 1-mark answers to one line and 5-mark answers to about 120-150 words. When you quiz, mix 1-mark objective questions with 2-, 3- and 5-mark descriptive questions and say how many marks each is worth. Point out common places students lose marks (missing units, unlabelled diagrams, skipped steps).",
+    syllabusId: "board",
+    markingStyle:
+      "Board-exam step marking: split marks across the definition or statement, each required explanation step, the formula or diagram, the substitution and the final answer with units. Award partial marks for each correct step even if the final answer is wrong.",
   },
 };
 
